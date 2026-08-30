@@ -1,6 +1,12 @@
 name: build
+
 on:
-  - push
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - 'v*' # Prevents duplicate runs when you push a release tag
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -9,21 +15,27 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
       - name: Java setup
         uses: actions/setup-java@v4
         with:
           distribution: "corretto"
           java-version: 8
+          cache: "gradle" # Fast caching so your public runner completes in seconds
+
       - name: Gradle build
         run: |
           chmod +x ./gradlew
           ./gradlew clean shadowJar --no-daemon --stacktrace
+
       - name: Find and rename artifact
         run: |
           mkdir -p output
           cp build/libs/Yuri.jar output/Yuri.jar
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: Yuri
           path: output/Yuri.jar
+          retention-days: 7 # Keeps your Actions tab tidy by deleting stale dev jars after 5 days
