@@ -2,6 +2,7 @@ package ddlc.yuri.modules.impl.render;
 
 import ddlc.yuri.Yuri;
 import ddlc.yuri.api.events.annotations.EventHook;
+import ddlc.yuri.api.events.annotations.EventPriority;
 import ddlc.yuri.api.events.impl.render.Render2DEvent;
 import ddlc.yuri.api.events.impl.render.Shader2DEvent;
 import ddlc.yuri.api.font.CustomFontRenderer;
@@ -44,7 +45,7 @@ public class WatermarkModule extends Module implements IMinecraft {
         SIMPLE("Simple"),
         CLASSIC("Classic"),
         LOGO("Logo"),
-        LESBIAN("Y u r i");
+        LESBIAN("Lesbian");
 
         public final String name;
 
@@ -59,12 +60,12 @@ public class WatermarkModule extends Module implements IMinecraft {
 
     private static final Color BG_COLOR = new Color(0, 0, 0, 130);
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onRender2D(Render2DEvent event) {
         renderWatermark();
     }
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onShader2D(Shader2DEvent event) {
         if (event.getShaderType() == Shader2DEvent.ShaderType.BLUR && (type.getValue() != Type.VIRTUE || type.getValue() != Type.YURI || type.getValue() != Type.YURISENSE)) return;
         renderWatermark();

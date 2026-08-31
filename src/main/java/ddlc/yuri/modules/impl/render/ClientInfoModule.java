@@ -1,6 +1,7 @@
 package ddlc.yuri.modules.impl.render;
 
 import ddlc.yuri.api.events.annotations.EventHook;
+import ddlc.yuri.api.events.annotations.EventPriority;
 import ddlc.yuri.api.events.impl.player.PreUpdateEvent;
 import ddlc.yuri.api.events.impl.render.Render2DEvent;
 import ddlc.yuri.api.events.impl.render.Shader2DEvent;
@@ -45,12 +46,12 @@ public final class ClientInfoModule extends Module {
         }
     }
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onRender2D(Render2DEvent event) {
         renderClientInfo();
     }
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onShader2D(Shader2DEvent event) {
         if (event.getShaderType() == Shader2DEvent.ShaderType.BLUR) return;
         renderClientInfo();

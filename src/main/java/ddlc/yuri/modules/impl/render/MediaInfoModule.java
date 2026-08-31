@@ -1,6 +1,7 @@
 package ddlc.yuri.modules.impl.render;
 
 import ddlc.yuri.api.events.annotations.EventHook;
+import ddlc.yuri.api.events.annotations.EventPriority;
 import ddlc.yuri.api.events.impl.render.Render2DEvent;
 import ddlc.yuri.api.events.impl.render.Shader2DEvent;
 import ddlc.yuri.api.font.CustomFontRenderer;
@@ -95,7 +96,7 @@ public class MediaInfoModule extends Module implements IMinecraft {
         tracker.stop();
     }
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onRender2D(Render2DEvent event) {
         GlStateManager.pushMatrix();
         GlStateManager.enableBlend();
@@ -109,7 +110,7 @@ public class MediaInfoModule extends Module implements IMinecraft {
         GlStateManager.popMatrix();
     }
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onShader2D(Shader2DEvent event) {
         GlStateManager.pushMatrix();
         GlStateManager.enableBlend();

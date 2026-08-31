@@ -1,11 +1,45 @@
 package ddlc.yuri.utils.render;
 
 import net.minecraft.client.renderer.GlStateManager;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.Display;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.util.glu.GLU;
+
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 
 import static org.lwjgl.opengl.GL11.*;
 
 public class GLUtils {
+    public static float[] project2D(float x,
+                                    float y,
+                                    float z,
+                                    int scaleFactor) {
+        FloatBuffer modelMatrix = BufferUtils.createFloatBuffer(16);
+        FloatBuffer projectionMatrix = BufferUtils.createFloatBuffer(16);
+        IntBuffer viewport = BufferUtils.createIntBuffer(16);
+        FloatBuffer windowPosition = BufferUtils.createFloatBuffer(4);
+
+        GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, modelMatrix);
+        GL11.glGetFloat(GL11.GL_PROJECTION_MATRIX, projectionMatrix);
+        GL11.glGetInteger(GL11.GL_VIEWPORT, viewport);
+
+        modelMatrix.rewind();
+        projectionMatrix.rewind();
+        viewport.rewind();
+
+        if (GLU.gluProject(x, y, z, modelMatrix, projectionMatrix, viewport, windowPosition)) {
+            float[] result = new float[3];
+            result[0] = windowPosition.get(0) / scaleFactor;
+            result[1] = (Display.getHeight() - windowPosition.get(1)) / scaleFactor;
+            result[2] = windowPosition.get(2);
+            return result;
+        }
+        return null;
+    }
+
+
     public static void enableDepth() {
         GlStateManager.enableDepth();
         GlStateManager.depthMask(true);

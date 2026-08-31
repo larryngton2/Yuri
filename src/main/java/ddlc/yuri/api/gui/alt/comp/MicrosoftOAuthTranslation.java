@@ -1,18 +1,5 @@
 package ddlc.yuri.api.gui.alt.comp;
 
-import java.awt.Desktop;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.Consumer;
-
 import com.google.gson.Gson;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
@@ -20,6 +7,18 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import ddlc.yuri.utils.client.NetworkUtils;
+
+import java.awt.*;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 
 
 public class MicrosoftOAuthTranslation {
@@ -50,6 +49,11 @@ public class MicrosoftOAuthTranslation {
         }
     }
 
+    private static class RedeemResult {
+        AuthTokenResponse response;
+        String rpsPrefix;
+    }
+
     private static final String CLIENT_ID = "9fbc7315-7200-4b2b-a655-bb38c865da17", CLIENT_SECRET = "Bzn8Q~YryydJsydgnnxHgJq.NM3Oo4.AEEohLbBb";
     private static final String XBOX_CLIENT_ID = "00000000402b5328";
     private static final String XBOX_REDIRECT_URI = "https://login.live.com/oauth20_desktop.srf";
@@ -60,7 +64,6 @@ public class MicrosoftOAuthTranslation {
     private static Consumer<String> callback;
 
     static void browse(String url) {
-        // Prefer Desktop.browse when supported
         try {
             if (Desktop.isDesktopSupported()) {
                 Desktop desktop = Desktop.getDesktop();
@@ -70,28 +73,23 @@ public class MicrosoftOAuthTranslation {
                 }
             }
         } catch (Exception ignored) {
-            // fall through to platform-specific attempts
         }
 
-        // Fallbacks for Linux environments: try common openers
         String[] candidates = new String[]{"xdg-open", "sensible-browser", "gnome-open", "kde-open", "sensible-browser"};
         for (String cmd : candidates) {
             try {
                 Process p = new ProcessBuilder(cmd, url).start();
-                // assume success if process started
                 return;
             } catch (IOException ignored) {
             }
         }
 
-        // Last-resort: try Runtime.exec variations
         try {
             Runtime.getRuntime().exec(new String[]{"/usr/bin/xdg-open", url});
             return;
         } catch (IOException ignored) {
         }
 
-        // Give up and print a helpful message
         System.err.println("Could not open URL: " + url + " — please open it manually in your browser.");
     }
 
@@ -107,15 +105,15 @@ public class MicrosoftOAuthTranslation {
     public static LoginData login(String refreshToken) {
         if (refreshToken == null || refreshToken.isEmpty()) return new LoginData();
 
-        AuthTokenResponse res = redeemRefreshToken(refreshToken);
-        if (res == null || res.access_token == null || res.access_token.isEmpty()) return new LoginData();
+        RedeemResult redeemed = redeemRefreshToken(refreshToken);
+        if (redeemed.response == null || redeemed.response.access_token == null || redeemed.response.access_token.isEmpty()) return new LoginData();
 
-        String accessToken = res.access_token;
-        String newRefreshToken = res.refresh_token != null ? res.refresh_token : refreshToken;
+        String accessToken = redeemed.response.access_token;
+        String newRefreshToken = redeemed.response.refresh_token != null ? redeemed.response.refresh_token : refreshToken;
 
         XblXstsResponse xblRes = gson.fromJson(
                 NetworkUtils.postExternal("https://user.auth.xboxlive.com/user/authenticate",
-                        "{\"Properties\":{\"AuthMethod\":\"RPS\",\"SiteName\":\"user.auth.xboxlive.com\",\"RpsTicket\":\"t=" + accessToken + "\"},\"RelyingParty\":\"http://auth.xboxlive.com\",\"TokenType\":\"JWT\"}", true),
+                        "{\"Properties\":{\"AuthMethod\":\"RPS\",\"SiteName\":\"user.auth.xboxlive.com\",\"RpsTicket\":\"" + redeemed.rpsPrefix + accessToken + "\"},\"RelyingParty\":\"http://auth.xboxlive.com\",\"TokenType\":\"JWT\"}", true),
                 XblXstsResponse.class);
 
         if (xblRes == null || xblRes.Token == null || xblRes.Token.isEmpty()) return new LoginData();
@@ -151,18 +149,28 @@ public class MicrosoftOAuthTranslation {
         return new LoginData(mcRes.access_token, newRefreshToken, profileRes.id, profileRes.name);
     }
 
-    private static AuthTokenResponse redeemRefreshToken(String refreshToken) {
+    private static RedeemResult redeemRefreshToken(String refreshToken) {
         AuthTokenResponse res = gson.fromJson(
                 NetworkUtils.postExternal("https://login.live.com/oauth20_token.srf",
                         "client_id=" + XBOX_CLIENT_ID + "&grant_type=refresh_token&redirect_uri=" + XBOX_REDIRECT_URI + "&refresh_token=" + refreshToken + "&scope=" + XBOX_SCOPE, false),
                 AuthTokenResponse.class);
 
-        if (res != null && res.access_token != null && !res.access_token.isEmpty()) return res;
+        if (res != null && res.access_token != null && !res.access_token.isEmpty()) {
+            RedeemResult result = new RedeemResult();
+            result.response = res;
+            result.rpsPrefix = "t=";
+            return result;
+        }
 
-        return gson.fromJson(
+        AuthTokenResponse fallback = gson.fromJson(
                 NetworkUtils.postExternal("https://login.live.com/oauth20_token.srf",
                         "client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&refresh_token=" + refreshToken + "&grant_type=refresh_token&redirect_uri=http://localhost:" + PORT, false),
                 AuthTokenResponse.class);
+
+        RedeemResult result = new RedeemResult();
+        result.response = fallback;
+        result.rpsPrefix = "d=";
+        return result;
     }
 
     private static void startServer() {

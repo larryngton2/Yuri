@@ -501,10 +501,15 @@ public final class ScaffoldModule extends Module {
             blocksPlaced = 0;
         }
 
-        if (rotations.getValue() == Rotations.RANDOMIZED && MoveUtils.isMoving()) {
+        if (rotations.getValue() == Rotations.RANDOMIZED && MoveUtils.isMoving() && blockFace != null && enumFacing != null) {
             float amount = (float) MathUtils.getRandom(randomizedSpeedMin.getValue().floatValue(), randomizedSpeedMax.getValue().floatValue());
-            target[0] += (float) ((Math.random() - 0.5) * 2 * amount);
-            target[1] += (float) ((Math.random() - 0.5) * 0.5 * amount);
+            float candidateYaw = target[0] + (float) ((Math.random() - 0.5) * 2 * amount);
+            float candidatePitch = target[1] + (float) ((Math.random() - 0.5) * 0.5 * amount);
+
+            if (RayCastUtils.overBlock(new Vector2f(candidateYaw, candidatePitch), enumFacing.getEnumFacing(), blockFace, rayCast.getValue() == RayCast.STRICT)) {
+                target[0] = candidateYaw;
+                target[1] = candidatePitch;
+            }
         }
 
         targetYaw = target[0];

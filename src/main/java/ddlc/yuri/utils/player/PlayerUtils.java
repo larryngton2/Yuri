@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class PlayerUtils implements IMinecraft {
 
@@ -130,7 +131,7 @@ public class PlayerUtils implements IMinecraft {
     public static Vec3 getPlacePossibility(double offsetX, double offsetY, double offsetZ, Integer plane) {
 
         final List<Vec3> possibilities = new ArrayList<>();
-        final int range = (int) (5 + (Math.abs(offsetX) + Math.abs(offsetZ)));
+        final int range = (int) (6.0 + (Math.abs(offsetX) + Math.abs(offsetZ)));
 
         for (int x = -range; x <= range; ++x) {
             for (int y = -range; y <= range; ++y) {
@@ -300,46 +301,57 @@ public class PlayerUtils implements IMinecraft {
 
     public static EnumFacingOffset getEnumFacing(final Vec3 position, boolean downwards) {
         List<EnumFacingOffset> possibleFacings = new ArrayList<>();
-        for (int z2 = -1; z2 <= 1; z2 += 2) {
-            if (!(BlockUtils.block(position.xCoord, position.yCoord, position.zCoord + z2).isReplaceable(mc.theWorld, new BlockPos(position.xCoord, position.yCoord, position.zCoord + z2)))) {
-                if (z2 < 0) {
-                    possibleFacings.add(new EnumFacingOffset(EnumFacing.SOUTH, new Vec3(0, 0, z2)));
-                } else {
-                    possibleFacings.add(new EnumFacingOffset(EnumFacing.NORTH, new Vec3(0, 0, z2)));
-                }
+
+        int posX = (int) Math.floor(position.xCoord);
+        int posY = (int) Math.floor(position.yCoord);
+        int posZ = (int) Math.floor(position.zCoord);
+
+        // 1. Check Horizontal Neighbors (North, South, East, West)
+        checkAndAddFacing(possibleFacings, posX, posY, posZ - 1, EnumFacing.SOUTH, 0, 0, -1);
+        checkAndAddFacing(possibleFacings, posX, posY, posZ + 1, EnumFacing.NORTH, 0, 0, 1);
+        checkAndAddFacing(possibleFacings, posX - 1, posY, posZ, EnumFacing.EAST,  -1, 0, 0);
+        checkAndAddFacing(possibleFacings, posX + 1, posY, posZ, EnumFacing.WEST,   1, 0, 0);
+
+        if (!possibleFacings.isEmpty()) {
+            // Add rotational noise (±15 degrees) so face selection isn't strictly robotic
+            double jitter = (ThreadLocalRandom.current().nextDouble() - 0.5) * 30.0;
+            double currentYaw = (RotationManager.rotations.x % 360 + 90) + jitter;
+
+            possibleFacings.sort(Comparator.comparingDouble(enumFacing -> {
+                double facingAngle = Math.toDegrees(Math.atan2(
+                        enumFacing.getOffset().zCoord,
+                        enumFacing.getOffset().xCoord
+                )) % 360;
+
+                return Math.abs(MathUtils.wrappedDifference(facingAngle, currentYaw));
+            }));
+
+            // 25% chance to pick the 2nd best face if its angle alignment is close (bypasses static pattern flags)
+            if (possibleFacings.size() > 1 && ThreadLocalRandom.current().nextDouble() < 0.25) {
+                return possibleFacings.get(1);
             }
+
+            return possibleFacings.get(0);
         }
 
-        for (int x2 = -1; x2 <= 1; x2 += 2) {
-            if (!(BlockUtils.block(position.xCoord + x2, position.yCoord, position.zCoord).isReplaceable(mc.theWorld, new BlockPos(position.xCoord + x2, position.yCoord, position.zCoord)))) {
-                if (x2 > 0) {
-                    possibleFacings.add(new EnumFacingOffset(EnumFacing.WEST, new Vec3(x2, 0, 0)));
-                } else {
-                    possibleFacings.add(new EnumFacingOffset(EnumFacing.EAST, new Vec3(x2, 0, 0)));
-                }
-            }
-        }
-
-        possibleFacings.sort(Comparator.comparingDouble(enumFacing -> {
-            double enumFacingRotations = Math.toDegrees(Math.atan2(enumFacing.getOffset().zCoord,
-                    enumFacing.getOffset().xCoord)) % 360;
-            double rotations = RotationManager.rotations.x % 360 + 90;
-
-            return Math.abs(MathUtils.wrappedDifference(enumFacingRotations, rotations));
-        }));
-
-        if (!possibleFacings.isEmpty()) return possibleFacings.get(0);
-
-        for (int y2 = -1; y2 <= 1; y2 += 2) {
-            if (!(BlockUtils.block(position.xCoord, position.yCoord + y2, position.zCoord).isReplaceable(mc.theWorld, new BlockPos(position.xCoord, position.yCoord + y2, position.zCoord)))) {
-                if (y2 < 0) {
-                    return new EnumFacingOffset(EnumFacing.UP, new Vec3(0, y2, 0));
-                } else if (downwards) {
-                    return new EnumFacingOffset(EnumFacing.DOWN, new Vec3(0, y2, 0));
-                }
-            }
+        // 2. Vertical Neighbors (Down / Up)
+        if (checkBlock(posX, posY - 1, posZ)) {
+            return new EnumFacingOffset(EnumFacing.UP, new Vec3(0, -1, 0));
+        } else if (downwards && checkBlock(posX, posY + 1, posZ)) {
+            return new EnumFacingOffset(EnumFacing.DOWN, new Vec3(0, 1, 0));
         }
 
         return null;
+    }
+
+    private static void checkAndAddFacing(List<EnumFacingOffset> list, int x, int y, int z, EnumFacing facing, int offX, int offY, int offZ) {
+        if (checkBlock(x, y, z)) {
+            list.add(new EnumFacingOffset(facing, new Vec3(offX, offY, offZ)));
+        }
+    }
+
+    private static boolean checkBlock(int x, int y, int z) {
+        BlockPos pos = new BlockPos(x, y, z);
+        return !BlockUtils.block(x, y, z).isReplaceable(mc.theWorld, pos);
     }
 }

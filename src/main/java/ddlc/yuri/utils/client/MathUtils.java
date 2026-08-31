@@ -195,4 +195,7 @@ public class MathUtils implements IMinecraft {
         return (b << 16) | (g << 8) | (r << 0);
     }
 
+    public static float normalize(float value, float min, float max) {
+        return (value - min) / (max - min);
+    }
 }

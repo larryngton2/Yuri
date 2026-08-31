@@ -25,8 +25,7 @@ import org.lwjgl.util.vector.Vector2f;
 public final class AutoPotModule extends Module {
 
     private final NumberProperty health = new NumberProperty("Health", 15, 1, 20, 1);
-    private final NumberProperty delay = new NumberProperty("Delay", 50, 0, 100, 5);
-    private final NumberProperty rotationSpeed = new NumberProperty("Rotation Speed", 5, 0, 10, 1);
+    private final NumberProperty delay = new NumberProperty("Delay", 0, 0, 100, 5);
 
     private final TimerUtils stopWatch = new TimerUtils();
     private int attackTicks;
@@ -72,8 +71,7 @@ public final class AutoPotModule extends Module {
                     continue;
                 }
 
-                final float rotationSpeed = this.rotationSpeed.getValue().floatValue();
-                RotationManager.setRotations(new Vector2f((float) (mc.thePlayer.rotationYaw + (Math.random() - 0.5) * 3), (float) (87 + Math.random() * 3)), rotationSpeed, RotationManager.MovementFix.NORMAL);
+                RotationManager.setRotations(new Vector2f((float) (mc.thePlayer.rotationYaw + (Math.random() - 0.5) * 3), (float) (87 + Math.random() * 3)), 10.0f, RotationManager.MovementFix.NORMAL);
 
                 mc.thePlayer.inventory.currentItem = i;
 

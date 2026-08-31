@@ -243,11 +243,10 @@ public class YuriAltMenu extends GuiScreen {
 
     private void drawSectionHeader(int x, int y, String bold, String rest) {
         Color accent = ColorManager.getColor();
-        Gui.drawRect(x, y + 1, x + 3, y + 15, accent.getRGB());
 
         CustomFontRenderer boldFont = FontUtils.getFont("sf-bold", 18);
         CustomFontRenderer regularFont = FontUtils.getFont("sf", 18);
-        int textX = x + 10;
+        int textX = x + 2;
         boldFont.drawStringWithShadow(bold, textX, y, accent.getRGB());
         regularFont.drawStringWithShadow(rest, textX + boldFont.getStringWidth(bold), y, Color.WHITE.getRGB());
     }

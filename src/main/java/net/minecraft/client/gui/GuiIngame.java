@@ -146,7 +146,9 @@ public class GuiIngame extends Gui {
         GlStateManager.enableAlpha();
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
         this.mc.mcProfiler.startSection("bossHealth");
-        this.renderBossHealth();
+        if (!CameraModule.noBossBar.getValue()) {
+            this.renderBossHealth();
+        }
         this.mc.mcProfiler.endSection();
 
         if (this.mc.playerController.shouldDrawHUD()) {
@@ -216,7 +218,15 @@ public class GuiIngame extends Gui {
                     l = MathHelper.hsvToRGB(f2 / 50.0F, 0.7F, 0.6F) & 16777215;
                 }
 
-                this.getFontRenderer().drawString(this.recordPlaying, -this.getFontRenderer().getStringWidth(this.recordPlaying) / 2, -4, l + (l1 << 24 & -16777216));
+                int alpha = l1 << 24 & -16777216;
+
+                FontUtils.getFont("sf", 18).drawStringWithShadow(
+                        this.recordPlaying,
+                        (float) (-FontUtils.getFont("sf", 18).getStringWidth(this.recordPlaying) / 2),
+                        -4.0F,
+                        l | alpha
+                );
+
                 GlStateManager.disableBlend();
                 GlStateManager.popMatrix();
             }
@@ -768,7 +778,6 @@ public class GuiIngame extends Gui {
     private void renderBossHealth() {
         if (BossStatus.bossName != null && BossStatus.statusBarTime > 0) {
             --BossStatus.statusBarTime;
-            FontRenderer fontrenderer = this.mc.fontRendererObj;
             ScaledResolution scaledresolution = new ScaledResolution(this.mc);
             int i = scaledresolution.getScaledWidth();
             int j = 182;
@@ -783,7 +792,14 @@ public class GuiIngame extends Gui {
             }
 
             String s = BossStatus.bossName;
-            this.getFontRenderer().drawStringWithShadow(s, (float) (i / 2 - this.getFontRenderer().getStringWidth(s) / 2), (float) (i1 - 10), 16777215);
+
+            FontUtils.getFont("sf", 18).drawStringWithShadow(
+                    s,
+                    (float) (i / 2 - FontUtils.getFont("sf", 18).getStringWidth(s) / 2),
+                    (float) (i1 - 10),
+                    16777215
+            );
+
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             this.mc.getTextureManager().bindTexture(icons);
         }

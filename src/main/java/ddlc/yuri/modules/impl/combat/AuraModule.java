@@ -2,11 +2,9 @@ package ddlc.yuri.modules.impl.combat;
 
 import ddlc.yuri.Yuri;
 import ddlc.yuri.api.events.annotations.EventHook;
-import ddlc.yuri.api.events.impl.client.PacketSendEvent;
 import ddlc.yuri.api.events.impl.player.HitSlowDownEvent;
 import ddlc.yuri.api.events.impl.player.MotionEvent;
 import ddlc.yuri.api.events.impl.player.PreUpdateEvent;
-import ddlc.yuri.api.events.impl.render.Render3DEvent;
 import ddlc.yuri.api.events.impl.world.WorldJoinEvent;
 import ddlc.yuri.api.properties.Property;
 import ddlc.yuri.api.properties.impl.ModeProperty;
@@ -24,17 +22,14 @@ import ddlc.yuri.utils.player.InvUtils;
 import ddlc.yuri.utils.player.RayCastUtils;
 import ddlc.yuri.utils.player.RotationUtils;
 import ddlc.yuri.utils.player.packet.PacketUtils;
-import ddlc.yuri.utils.render.RenderUtils;
-import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.network.play.client.C07PacketPlayerDigging;
 import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
-import net.minecraft.network.play.client.C0BPacketEntityAction;
 import net.minecraft.util.*;
-import org.lwjgl.opengl.GL11;
 import org.lwjgl.util.vector.Vector2f;
 
-import java.awt.*;
+import java.security.SecureRandom;
 import java.util.Arrays;
 
 @ModuleInfo(label = "Aura", description = "Automatically attacks entities around you", category = ModuleCategory.COMBAT)
@@ -52,6 +47,7 @@ public class AuraModule extends Module {
     public static ModeProperty<AutoBlock> ab = new ModeProperty<>("Auto Block", AutoBlock.FAKE);
     public static Property<Boolean> onlyBlockIfHurt = new Property<>("Only Block If Hurt", false);
     private final NumberProperty blockOnHurtTicks = new NumberProperty("Block On Hurt Ticks", 4, 0, 10, 1, onlyBlockIfHurt::getValue);
+    public static final Property<Boolean> throughWalls = new Property<>("Through Walls", false);
     public static ModeProperty<Rotations> rotations = new ModeProperty<>("Rotations", Rotations.NORMAL);
     private final NumberProperty minRotSpeed = new NumberProperty("Min Rotation Speed", 3, 0, 10, 0.5f);
     private final NumberProperty maxRotSpeed = new NumberProperty("Max Rotation Speed", 7, 0, 10, 0.5f);
@@ -66,8 +62,6 @@ public class AuraModule extends Module {
     public static final ModeProperty<MoveFix> fix = new ModeProperty<>("Move Fix", MoveFix.SILENT);
     public static final Property<Boolean> sprint = new Property<>("Keep Sprint", false);
     public static final Property<Boolean> hypixelSprint = new Property<>("Hypixel Keep Sprint", false, sprint::getValue);
-    public static final Property<Boolean> targetEsp = new Property<>("Target ESP", true);
-    public static final Property<Boolean> astolfoPentagram = new Property<>("Astolfo Pentagram", true);
     public static final Property<Boolean> autoDisable = new Property<>("Auto Disable", true);
 
     public enum MoveFix {
@@ -141,7 +135,7 @@ public class AuraModule extends Module {
     public void onPreUpdate(PreUpdateEvent event) {
         setSuffix(mode.getValue().toString());
 
-        if (mc.thePlayer == null || mc.theWorld == null || Yuri.INSTANCE.getModuleManager().getModule(ScaffoldModule.class).isEnabled()) {
+        if (mc.thePlayer == null || mc.theWorld == null || Yuri.INSTANCE.getModuleManager().getModule(ScaffoldModule.class).isEnabled() || (target != null && !throughWalls.getValue() && !canSeeEntity(target))) {
             resetCombatState();
             return;
         }
@@ -201,6 +195,12 @@ public class AuraModule extends Module {
             e.setSprint(true);
             e.setSlowDown(1.0);
         }
+
+        if (hypixelSprint.getValue() && sprint.getValue()) {
+            if (!mc.thePlayer.isCollidedHorizontally && mc.thePlayer.isSprinting() && mc.thePlayer.moveForward > 0 && mc.thePlayer.hurtTime <= 4) {
+                e.setSprint(true);
+            }
+        }
     }
 
     @EventHook
@@ -208,24 +208,6 @@ public class AuraModule extends Module {
         resetCombatState();
         if (autoDisable.getValue()) {
             toggle();
-        }
-    }
-
-    @EventHook
-    public void onRender3D(Render3DEvent event) {
-        render3D();
-        renderAstolfoPentagram();
-    }
-
-    @EventHook
-    public void onPacketSend(PacketSendEvent event) {
-        if (event.getPacket() instanceof C0BPacketEntityAction) {
-            C0BPacketEntityAction packet = (C0BPacketEntityAction) event.getPacket();
-
-            if (packet.getAction() == C0BPacketEntityAction.Action.STOP_SPRINTING && hitSlow && mc.thePlayer.isSprinting() && sprint.getValue() && hypixelSprint.getValue()) {
-                event.setCancelled(true);
-                PacketUtils.sendSilentPacket(packet);
-            }
         }
     }
 
@@ -330,7 +312,7 @@ public class AuraModule extends Module {
                 }
                 break;
             case HYPIXEL:
-                mc.gameSettings.keyBindUseItem.setPressed(!BadPacketsManager.bad(true, true, false, false, false) && !readyToAttack);
+                mc.gameSettings.keyBindUseItem.setPressed(!BadPacketsManager.bad(true, true, false, false, false) && !readyToAttack && mc.thePlayer.getDistanceToEntity(target) <= 2.5f);
                 if (mc.gameSettings.keyBindUseItem.isPressed() || mc.thePlayer.isUsingItem()) {
                     mc.thePlayer.setSprinting(!(Math.abs(MathHelper.wrapAngleTo180_float(mc.thePlayer.rotationYaw) - MathHelper.wrapAngleTo180_float(RotationManager.rotations.x)) > 90));
                     mc.thePlayer.movementInput.moveForward *= 1.8f;
@@ -468,7 +450,7 @@ public class AuraModule extends Module {
             minVal = maxVal;
             maxVal = t;
         }
-        double cps = MathUtils.getRandom(minVal, maxVal);
+        double cps = MathHelper.clamp_double(minVal + ((maxVal - minVal) * new SecureRandom().nextDouble()), minVal, maxVal);
         return Math.max(1.0, cps);
     }
 
@@ -482,105 +464,11 @@ public class AuraModule extends Module {
         target = TargetManager.getTarget();
     }
 
-    public void render3D() {
-        if (!targetEsp.getValue() || target == null) return;
-
-        final float partialTicks = mc.timer.renderPartialTicks;
-        EntityLivingBase player = target;
-        final Color color = ColorManager.getColor();
-
-        if (mc.getRenderManager() == null || player == null) return;
-
-        final double x = player.prevPosX + (player.posX - player.prevPosX) * partialTicks - (mc.getRenderManager()).renderPosX;
-        final double y = player.prevPosY + (player.posY - player.prevPosY) * partialTicks + Math.sin(System.currentTimeMillis() / 2E+2) + 1 - (mc.getRenderManager()).renderPosY;
-        final double z = player.prevPosZ + (player.posZ - player.prevPosZ) * partialTicks - (mc.getRenderManager()).renderPosZ;
-
-        GL11.glPushMatrix();
-        GL11.glDisable(3553);
-        GL11.glEnable(2848);
-        GL11.glEnable(2832);
-        GL11.glEnable(3042);
-        GL11.glBlendFunc(770, 771);
-        GL11.glHint(3154, 4354);
-        GL11.glHint(3155, 4354);
-        GL11.glHint(3153, 4354);
-        GL11.glDepthMask(false);
-        GlStateManager.alphaFunc(GL11.GL_GREATER, 0.0F);
-        GL11.glShadeModel(GL11.GL_SMOOTH);
-        GlStateManager.disableCull();
-        GL11.glBegin(GL11.GL_TRIANGLE_STRIP);
-
-        for (float i = 0; i <= Math.PI * 2 + ((Math.PI * 2) / 25); i += (float) ((Math.PI * 2) / 25)) {
-            double vecX = x + 0.67 * Math.cos(i);
-            double vecZ = z + 0.67 * Math.sin(i);
-
-            RenderUtils.color(RenderUtils.withAlpha(color, (int) (255 * 0.25)));
-            GL11.glVertex3d(vecX, y, vecZ);
-        }
-
-        for (float i = 0; i <= Math.PI * 2 + (Math.PI * 2) / 25; i += (Math.PI * 2) / 25) {
-            double vecX = x + 0.67 * Math.cos(i);
-            double vecZ = z + 0.67 * Math.sin(i);
-
-            RenderUtils.color(RenderUtils.withAlpha(color, (int) (255 * 0.25)));
-            GL11.glVertex3d(vecX, y, vecZ);
-
-            RenderUtils.color(RenderUtils.withAlpha(color, 0));
-            GL11.glVertex3d(vecX, y - Math.cos(System.currentTimeMillis() / 2E+2) / 2.0F, vecZ);
-        }
-
-        GL11.glEnd();
-        GL11.glShadeModel(GL11.GL_FLAT);
-        GL11.glDepthMask(true);
-        GL11.glEnable(2929);
-        GlStateManager.alphaFunc(GL11.GL_GREATER, 0.1F);
-        GlStateManager.enableCull();
-        GL11.glDisable(2848);
-        GL11.glEnable(2832);
-        GL11.glEnable(3553);
-        GL11.glPopMatrix();
-        RenderUtils.color(ColorManager.getColor().getRGB());
-    }
-
-    private void renderAstolfoPentagram() {
-        if (!astolfoPentagram.getValue() || mc.thePlayer == null) return;
-
-        final float partialTicks = mc.timer.renderPartialTicks;
-        final Color color = ColorManager.getColor();
-
-        final double x = mc.thePlayer.prevPosX + (mc.thePlayer.posX - mc.thePlayer.prevPosX) * partialTicks - mc.getRenderManager().renderPosX;
-        final double y = mc.thePlayer.prevPosY + (mc.thePlayer.posY - mc.thePlayer.prevPosY) * partialTicks - mc.getRenderManager().renderPosY + 0.02;
-        final double z = mc.thePlayer.prevPosZ + (mc.thePlayer.posZ - mc.thePlayer.prevPosZ) * partialTicks - mc.getRenderManager().renderPosZ;
-
-        final double radius = 1.4;
-        final double rotation = (System.currentTimeMillis() % 6000L) / 6000.0 * 360.0;
-
-        GL11.glPushMatrix();
-        GL11.glDisable(3553);
-        GL11.glEnable(2848);
-        GL11.glEnable(3042);
-        GL11.glBlendFunc(770, 771);
-        GL11.glLineWidth(2.0F);
-        GL11.glDepthMask(false);
-        GlStateManager.disableCull();
-
-        RenderUtils.color(color.getRGB());
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-
-        for (int i = 0; i < 5; i++) {
-            double angle = Math.toRadians(rotation + i * 144.0);
-            double vecX = x + radius * Math.cos(angle);
-            double vecZ = z + radius * Math.sin(angle);
-            GL11.glVertex3d(vecX, y, vecZ);
-        }
-
-        GL11.glEnd();
-
-        GL11.glDepthMask(true);
-        GlStateManager.enableCull();
-        GL11.glDisable(2848);
-        GL11.glEnable(3553);
-        GL11.glPopMatrix();
-        RenderUtils.color(ColorManager.getColor().getRGB());
+    private boolean canSeeEntity(Entity entity) {
+        if (throughWalls.getValue()) return true;
+        Vec3 eyes = mc.thePlayer.getPositionEyes(1.0f);
+        Vec3 targetPos = new Vec3(entity.posX, entity.posY + entity.getEyeHeight(), entity.posZ);
+        MovingObjectPosition result = mc.theWorld.rayTraceBlocks(eyes, targetPos, false, true, false);
+        return result == null;
     }
 }

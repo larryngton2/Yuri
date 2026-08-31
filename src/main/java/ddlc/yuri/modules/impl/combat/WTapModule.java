@@ -1,8 +1,8 @@
 package ddlc.yuri.modules.impl.combat;
 
 import ddlc.yuri.api.events.annotations.EventHook;
-import ddlc.yuri.api.events.impl.player.MotionEvent;
 import ddlc.yuri.api.events.impl.player.PlayerAttackEvent;
+import ddlc.yuri.api.events.impl.player.PreUpdateEvent;
 import ddlc.yuri.api.properties.impl.NumberProperty;
 import ddlc.yuri.modules.Module;
 import ddlc.yuri.modules.ModuleCategory;
@@ -32,8 +32,7 @@ public final class WTapModule extends Module {
     }
 
     @EventHook
-    public void onMotion(MotionEvent event) {
-        if (!event.isPre()) return;
+    public void onPreUpdate(PreUpdateEvent event) {
         if (!wtap) return;
 
         if (unsprint && Math.random() * 100 < chance.getValue()) {

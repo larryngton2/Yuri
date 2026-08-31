@@ -1,17 +1,26 @@
 package ddlc.yuri.utils.render;
 
 import ddlc.yuri.managers.impl.ColorManager;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.metadata.IIOMetadata;
+import javax.imageio.metadata.IIOMetadataNode;
+import javax.imageio.stream.ImageInputStream;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +35,22 @@ public class RenderUtils {
     private static float scissorTransformOriginY;
 
     // 3d !! (I hate this fucking bullshit)
+
+    public static void setupOrientationMatrix(double x, double y, double z) {
+        Minecraft mc = Minecraft.getMinecraft();
+
+        // Translate relative to the player's current interpolated view coordinates
+        double renderPosX = mc.getRenderManager().viewerPosX;
+        double renderPosY = mc.getRenderManager().viewerPosY;
+        double renderPosZ = mc.getRenderManager().viewerPosZ;
+
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(x - renderPosX, y - renderPosY, z - renderPosZ);
+
+        // Rotate to face the camera (billboarding effect)
+        GlStateManager.rotate(-mc.getRenderManager().playerViewY, 0.0F, 1.0F, 0.0F);
+        GlStateManager.rotate(mc.getRenderManager().playerViewX, 1.0F, 0.0F, 0.0F);
+    }
 
     public static void drawBoundingBox(final AxisAlignedBB a) {
         final Tessellator tessellator = Tessellator.getInstance();
@@ -96,6 +121,13 @@ public class RenderUtils {
     }
 
     // 2d rendering
+
+    public static void customRotatedObject2D(float x, float y, float width, float height, double rotate) {
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(x + width / 2f, y + height / 2f, 0);
+        GlStateManager.rotate((float) rotate, 0.0f, 0.0f, 1.0f);
+        GlStateManager.translate(-(x + width / 2f), -(y + height / 2f), 0);
+    }
 
     public static void drawGradientRect(double left, double top, double right, double bottom,
                                         boolean sideways,
@@ -195,7 +227,6 @@ public class RenderUtils {
         GlStateManager.color(1, 1, 1, 1);
     }
 
-
     public static void drawImage(ResourceLocation resourceLocation, float x, float y, float imgWidth, float imgHeight) {
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         GlStateManager.enableBlend();
@@ -212,6 +243,58 @@ public class RenderUtils {
         mc.getTextureManager().bindTexture(resourceLocation);
         Gui.drawModalRectWithCustomSizedTexture(x, y, croppedX, croppedY, croppedWidth, croppedHeight, imgWidth, imgHeight);
         GlStateManager.disableBlend();
+    }
+
+    public static void drawImage(ResourceLocation image, double x, double y, double z, float width, float height, Color color1, Color color2, Color color3, Color color4) {
+        Minecraft.getMinecraft().getTextureManager().bindTexture(image);
+        GlStateManager.enableBlend();
+        GlStateManager.disableAlpha();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.shadeModel(GL11.GL_SMOOTH); // Enables smooth gradient coloring across vertices
+
+        // If you are rendering this in world-space (since it uses a z coordinate and angles),
+        // ensure your setupOrientationMatrix is called before this.
+        Tessellator tessellator = Tessellator.getInstance();
+        WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+
+        worldrenderer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+
+        // Top-Left
+        worldrenderer.pos(x, y + height, z).tex(0.0, 1.0).color(color1.getRed(), color1.getGreen(), color1.getBlue(), color1.getAlpha()).endVertex();
+        // Top-Right
+        worldrenderer.pos(x + width, y + height, z).tex(1.0, 1.0).color(color2.getRed(), color2.getGreen(), color2.getBlue(), color2.getAlpha()).endVertex();
+        // Bottom-Right
+        worldrenderer.pos(x + width, y, z).tex(1.0, 0.0).color(color3.getRed(), color3.getGreen(), color3.getBlue(), color3.getAlpha()).endVertex();
+        // Bottom-Left
+        worldrenderer.pos(x, y, z).tex(0.0, 0.0).color(color4.getRed(), color4.getGreen(), color4.getBlue(), color4.getAlpha()).endVertex();
+
+        tessellator.draw();
+
+        GlStateManager.shadeModel(GL11.GL_FLAT);
+        GlStateManager.enableAlpha();
+        GlStateManager.disableBlend();
+    }
+
+    public static void drawImage(ResourceLocation resource, float x, float y, float x2, float y2, int c) {
+        mc.getTextureManager().bindTexture(resource);
+        Tessellator tessellator = Tessellator.getInstance();
+        WorldRenderer worldRenderer = tessellator.getWorldRenderer();
+        worldRenderer.begin(9, DefaultVertexFormats.POSITION_TEX_COLOR);
+        worldRenderer.pos(x, y2, 0.0).tex(0.0, 1.0).color(c).endVertex();
+        worldRenderer.pos(x2, y2, 0.0).tex(1.0, 1.0).color(c).endVertex();
+        worldRenderer.pos(x2, y, 0.0).tex(1.0, 0.0).color(c).endVertex();
+        worldRenderer.pos(x, y, 0.0).tex(0.0, 0.0).color(c).endVertex();
+        GL11.glShadeModel(7425);
+        GL11.glDepthMask(false);
+        tessellator.draw();
+        GL11.glDepthMask(true);
+        GL11.glShadeModel(7424);
+    }
+
+
+    public static void drawGif(GifTexture gif, float x, float y, float imgWidth, float imgHeight) {
+        if (gif == null) return;
+        drawImage(gif.getCurrentFrame(), x, y, imgWidth, imgHeight);
     }
 
     public static void drawArrow(float x, float y, float size, int color, double rotation) {
@@ -576,5 +659,70 @@ public class RenderUtils {
         glBindTexture(GL_TEXTURE_2D, texture);
     }
 
+    public static class GifTexture {
+        private final List<ResourceLocation> frames = new ArrayList<>();
+        private final List<Integer> delays = new ArrayList<>();
+        private long lastFrameTime = System.currentTimeMillis();
+        private int currentFrame = 0;
 
+        public GifTexture(InputStream inputStream) {
+            try (ImageInputStream stream = ImageIO.createImageInputStream(inputStream)) {
+                ImageReader reader = ImageIO.getImageReadersByFormatName("gif").next();
+                reader.setInput(stream);
+
+                int count = reader.getNumImages(true);
+                for (int i = 0; i < count; i++) {
+                    BufferedImage frame = reader.read(i);
+                    DynamicTexture dynamicTex = new DynamicTexture(frame);
+                    ResourceLocation loc = mc.getTextureManager()
+                            .getDynamicTextureLocation("gif_frame_" + System.nanoTime() + "_" + i, dynamicTex);
+                    frames.add(loc);
+
+                    int delayMs = 100;
+                    IIOMetadata metadata = reader.getImageMetadata(i);
+                    String metaFormat = metadata.getNativeMetadataFormatName();
+                    IIOMetadataNode root = (IIOMetadataNode) metadata.getAsTree(metaFormat);
+                    IIOMetadataNode gce = findNode(root, "GraphicControlExtension");
+
+                    if (gce != null && gce.hasAttribute("delayTime")) {
+                        int delayVal = Integer.parseInt(gce.getAttribute("delayTime")) * 10;
+                        if (delayVal > 0) delayMs = delayVal;
+                    }
+                    delays.add(delayMs);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        public int getFrameCount() {
+            return frames.size();
+        }
+
+        public ResourceLocation getCurrentFrame() {
+            if (frames.isEmpty()) return null;
+
+            long now = System.currentTimeMillis();
+            if (now - lastFrameTime >= delays.get(currentFrame)) {
+                currentFrame = (currentFrame + 1) % frames.size();
+                lastFrameTime = now;
+            }
+
+            return frames.get(currentFrame);
+        }
+
+        public void clear() {
+            frames.clear();
+            delays.clear();
+        }
+
+        private IIOMetadataNode findNode(IIOMetadataNode root, String name) {
+            for (int i = 0; i < root.getLength(); i++) {
+                if (root.item(i).getNodeName().equalsIgnoreCase(name)) {
+                    return (IIOMetadataNode) root.item(i);
+                }
+            }
+            return null;
+        }
+    }
 }

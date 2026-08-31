@@ -184,7 +184,7 @@ public class TargetManager {
         return false;
     }
 
-    private static boolean inTeam(@NonNull ICommandSender entity0, @NonNull ICommandSender entity1) {
+    public static boolean inTeam(@NonNull ICommandSender entity0, @NonNull ICommandSender entity1) {
         String s = "\u00a7" + teamColor(entity0);
 
         return entity0.getDisplayName().getFormattedText().contains(s)

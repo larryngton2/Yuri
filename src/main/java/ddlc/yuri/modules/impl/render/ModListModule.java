@@ -2,6 +2,7 @@ package ddlc.yuri.modules.impl.render;
 
 import ddlc.yuri.Yuri;
 import ddlc.yuri.api.events.annotations.EventHook;
+import ddlc.yuri.api.events.annotations.EventPriority;
 import ddlc.yuri.api.events.impl.player.PreUpdateEvent;
 import ddlc.yuri.api.events.impl.render.Render2DEvent;
 import ddlc.yuri.api.events.impl.render.Shader2DEvent;
@@ -66,7 +67,6 @@ public class ModListModule extends Module implements IMinecraft {
         }
     }
 
-
     public enum ColorMode {
         STATIC("Static"),
         FADE("Fade");
@@ -100,12 +100,12 @@ public class ModListModule extends Module implements IMinecraft {
         moduleCache.sort(new LengthComparator());
     }
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onRender2D(Render2DEvent event) {
         renderArrayList();
     }
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onShader2D(Shader2DEvent event) {
         renderArrayList();
     }
@@ -211,11 +211,8 @@ public class ModListModule extends Module implements IMinecraft {
 
                 if (bg.getValue()) {
                     float bgLeft = (!line.getValue() && !outline.getValue()) ? (float) translateX - pad : (float) translateX - pad - lw;
-                    if (off > 0 & line.getValue()) {
-                        Gui.drawRect(bgLeft, (float) translateY - pad, screenX, (float) translateY + TEXT_HEIGHT + pad, getColorForBG().getRGB());
-                    } else {
-                        Gui.drawRect(bgLeft, (float) translateY - pad, screenX + pad + lw, (float) translateY + TEXT_HEIGHT + pad, getColorForBG().getRGB());
-                    }
+                    float bgRight = (off > 0 && outline.getValue()) ? screenX + lw : screenX;
+                    Gui.drawRect(bgLeft, (float) translateY - pad, bgRight, (float) translateY + TEXT_HEIGHT + pad, getColorForBG().getRGB());
                 }
 
                 float textX = line.getValue() ? (float) (translateX - 1.0f) : (float) ((float) offset.getValue().floatValue() == 0 ? translateX - 0.5f : (float) translateX);
@@ -223,50 +220,63 @@ public class ModListModule extends Module implements IMinecraft {
                     textX -= pad / getTextWidth(fr, name);
                 }
 
-                drawText(fr, name, useCustomFont.getValue() ? textX : textX + 0.8f, (float) translateY, aColor);
+                drawText(fr, name, useCustomFont.getValue() ? offset.getValue().intValue() > 0 ? textX - 1.0f : textX : textX + 0.8f, (float) translateY, aColor);
 
                 if (outline.getValue()) {
+                    // Left outline line
                     Gui.drawRect((float) translateX - pad - lw, (float) translateY - pad, (float) translateX - pad, (float) translateY + TEXT_HEIGHT + pad, aColor);
 
                     double outlineTop = translateY - pad - lw;
                     double outlineBottom = translateY + TEXT_HEIGHT + pad;
-                    float renderRight = (float) translateX + moduleWidth + pad;
+                    float rightEdge = (off > 0) ? screenX + lw : screenX;
 
-                    if (i != firstVisibleModuleIndex && moduleWidth - previousModuleWidth > 0) {
-                        Gui.drawRect((float) translateX - pad - lw, outlineTop, screenX - previousModuleWidth - ((pad + lw) * 2), outlineTop + lw, aColor);
-                    }
-
-                    if (i != lastVisibleModuleIndex) {
-                        Module nextModule = null;
-                        int indexOffset = 1;
-
-                        while (i + indexOffset <= lastVisibleModuleIndex) {
-                            nextModule = filteredModules.get(i + indexOffset);
-                            if (nextModule.isVisible()) {
+                    // Step line connecting to PREVIOUS module
+                    if (i != firstVisibleModuleIndex) {
+                        Module prevModule = null;
+                        for (int j = i - 1; j >= 0; j--) {
+                            if (filteredModules.get(j).isVisible()) {
+                                prevModule = filteredModules.get(j);
                                 break;
                             }
-                            nextModule = null;
-                            indexOffset++;
+                        }
+                        if (prevModule != null) {
+                            String prevModuleName = displayLabelCache.get(prevModule);
+                            float prevModuleWidth = getTextWidth(fr, prevModuleName);
+                            if (moduleWidth - prevModuleWidth > 0.5f) {
+                                float prevLeftOutline = (float) prevModule.getTranslate().getX() - pad - lw;
+                                Gui.drawRect((float) translateX - pad - lw, (float) outlineTop, prevLeftOutline, (float) outlineTop + lw, aColor);
+                            }
+                        }
+                    } else {
+                        Gui.drawRect((float) translateX - pad - lw, (float) outlineTop, rightEdge, (float) outlineTop + lw, aColor);
+                    }
+
+                    // Step line connecting to NEXT module
+                    if (i != lastVisibleModuleIndex) {
+                        Module nextModule = null;
+                        for (int j = i + 1; j <= lastVisibleModuleIndex; j++) {
+                            if (filteredModules.get(j).isVisible()) {
+                                nextModule = filteredModules.get(j);
+                                break;
+                            }
                         }
 
                         if (nextModule != null) {
                             String nextModuleName = displayLabelCache.get(nextModule);
                             float nextModuleWidth = getTextWidth(fr, nextModuleName);
 
-                            if (moduleWidth - nextModuleWidth > 0.5) {
-                                Gui.drawRect((float) translateX - pad - lw, outlineBottom, screenX - nextModuleWidth - (pad + lw), outlineBottom + lw, aColor);
+                            if (moduleWidth - nextModuleWidth > 0.5f) {
+                                float nextLeftOutline = (float) nextModule.getTranslate().getX() - pad - lw;
+                                Gui.drawRect((float) translateX - pad - lw, (float) outlineBottom, nextLeftOutline, (float) outlineBottom + lw, aColor);
                             }
                         }
                     } else {
-                        Gui.drawRect((float) translateX - pad - lw, outlineBottom, screenX + pad + lw, outlineBottom + lw, aColor);
+                        Gui.drawRect((float) translateX - pad - lw, (float) outlineBottom, rightEdge, (float) outlineBottom + lw, aColor);
                     }
 
+                    // Right outline line when HUD offset > 0
                     if (off > 0) {
-                        Gui.drawRect(renderRight, (float) translateY - pad, renderRight + lw, (float) translateY + TEXT_HEIGHT + pad, aColor);
-
-                        if (i == firstVisibleModuleIndex) {
-                            Gui.drawRect((float) translateX - pad - lw, (float) outlineTop, renderRight + lw, (float) outlineTop + lw, aColor);
-                        }
+                        Gui.drawRect(screenX, (float) translateY - pad, screenX + lw, (float) translateY + TEXT_HEIGHT + pad, aColor);
                     }
                 }
 

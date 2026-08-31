@@ -262,7 +262,7 @@ public class ImGuiClickGui extends GuiScreen {
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int state) {
         if (state >= 0 && state < 5) {
-            imgui.ImGui.getIO().setMouseDown(state, false);
+            ImGui.getIO().setMouseDown(state, false);
         }
         super.mouseReleased(mouseX, mouseY, state);
     }

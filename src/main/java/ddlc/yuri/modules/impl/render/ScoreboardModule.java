@@ -1,6 +1,7 @@
 package ddlc.yuri.modules.impl.render;
 
 import ddlc.yuri.api.events.annotations.EventHook;
+import ddlc.yuri.api.events.annotations.EventPriority;
 import ddlc.yuri.api.events.impl.render.Render2DEvent;
 import ddlc.yuri.api.events.impl.render.Shader2DEvent;
 import ddlc.yuri.api.properties.Property;
@@ -38,12 +39,12 @@ public class ScoreboardModule extends Module {
 
     private boolean renderedThisFrame = false;
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onRender2D(Render2DEvent e) {
         renderedThisFrame = false;
     }
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onShader2D(Shader2DEvent e) {
         if (!this.isEnabled()) return;
         if (renderedThisFrame) return;

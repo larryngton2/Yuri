@@ -275,28 +275,42 @@ public final class ScaffoldUtils {
     }
 
     public static Vec3 computeHitVec(BlockPos blockFace, EnumFacingOffset enumFacing) {
-        Vec3 hitVec = new Vec3(
-                blockFace.getX() + Math.random(),
-                blockFace.getY() + Math.random(),
-                blockFace.getZ() + Math.random());
+        EnumFacing facing = enumFacing.getEnumFacing();
+
+        double minMargin = 0.1;
+        double maxMargin = 0.9;
+        double randX = minMargin + Math.random() * (maxMargin - minMargin);
+        double randY = minMargin + Math.random() * (maxMargin - minMargin);
+        double randZ = minMargin + Math.random() * (maxMargin - minMargin);
+
+        double x = (facing.getAxis() == EnumFacing.Axis.X) ? (facing == EnumFacing.EAST ? blockFace.getX() + 1.0 : blockFace.getX()) : blockFace.getX() + randX;
+        double y = (facing.getAxis() == EnumFacing.Axis.Y) ? (facing == EnumFacing.UP   ? blockFace.getY() + 1.0 : blockFace.getY()) : blockFace.getY() + randY;
+        double z = (facing.getAxis() == EnumFacing.Axis.Z) ? (facing == EnumFacing.SOUTH ? blockFace.getZ() + 1.0 : blockFace.getZ()) : blockFace.getZ() + randZ;
+
+        Vec3 hitVec = new Vec3(x, y, z);
 
         final MovingObjectPosition mop = RayCastUtils.rayCast(
                 serverRotations(),
-                mc.playerController.getBlockReachDistance());
-
-        switch (enumFacing.getEnumFacing()) {
-            case DOWN:  hitVec.yCoord = blockFace.getY();     break;
-            case UP:    hitVec.yCoord = blockFace.getY() + 1; break;
-            case NORTH: hitVec.zCoord = blockFace.getZ();     break;
-            case EAST:  hitVec.xCoord = blockFace.getX() + 1; break;
-            case SOUTH: hitVec.zCoord = blockFace.getZ() + 1; break;
-            case WEST:  hitVec.xCoord = blockFace.getX();     break;
-        }
+                mc.playerController.getBlockReachDistance()
+        );
 
         if (mop != null && mop.getBlockPos() != null && mop.hitVec != null
                 && mop.getBlockPos().equals(blockFace)
-                && mop.sideHit == enumFacing.getEnumFacing()) {
-            hitVec = mop.hitVec;
+                && mop.sideHit == facing) {
+
+            double jitter = 0.03;
+            double jX = (Math.random() - 0.5) * (jitter * 2);
+            double jY = (Math.random() - 0.5) * (jitter * 2);
+            double jZ = (Math.random() - 0.5) * (jitter * 2);
+
+            double mopX = facing.getAxis() == EnumFacing.Axis.X ? mop.hitVec.xCoord
+                    : Math.max(blockFace.getX() + minMargin, Math.min(blockFace.getX() + maxMargin, mop.hitVec.xCoord + jX));
+            double mopY = facing.getAxis() == EnumFacing.Axis.Y ? mop.hitVec.yCoord
+                    : Math.max(blockFace.getY() + minMargin, Math.min(blockFace.getY() + maxMargin, mop.hitVec.yCoord + jY));
+            double mopZ = facing.getAxis() == EnumFacing.Axis.Z ? mop.hitVec.zCoord
+                    : Math.max(blockFace.getZ() + minMargin, Math.min(blockFace.getZ() + maxMargin, mop.hitVec.zCoord + jZ));
+
+            hitVec = new Vec3(mopX, mopY, mopZ);
         }
 
         return hitVec;

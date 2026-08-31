@@ -46,6 +46,7 @@ public class CameraModule extends Module {
     public static Property<Boolean> noHurtCamera = new Property<>("No Hurt Camera", true);
     public static Property<Boolean> noFireOverlay = new Property<>("No Fire Overlay", true);
     public static Property<Boolean> noBlindness = new Property<>("No Blindness", true);
+    public static Property<Boolean> noBossBar = new Property<>("No Boss Bar", true);
     public final Property<Boolean> fullBright = new Property<>("Full Bright", false);
 
     private float originalGamma;

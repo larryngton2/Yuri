@@ -1,6 +1,5 @@
 package ddlc.yuri.utils.render;
 
-import ddlc.yuri.utils.misc.IMinecraft;
 import ddlc.yuri.utils.render.shader.RoundedShaderUtils;
 import ddlc.yuri.utils.render.shader.ShaderUtils;
 import net.minecraft.client.Minecraft;
@@ -10,6 +9,7 @@ import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.*;
+
 import static org.lwjgl.opengl.GL11.*;
 
 public class RoundedUtils extends RenderUtils {
@@ -194,5 +194,10 @@ public class RoundedUtils extends RenderUtils {
         drawImage(resourceLocation, x, y, croppedX, croppedY, croppedWidth, croppedHeight, imgWidth, imgHeight);
 
         GL11.glDisable(GL11.GL_STENCIL_TEST);
+    }
+
+    public static void drawRoundedGif(GifTexture gif, float x, float y, float imgWidth, float imgHeight, float radius) {
+        if (gif == null) return;
+        drawRoundedImage(gif.getCurrentFrame(), x, y, imgWidth, imgHeight, radius);
     }
 }

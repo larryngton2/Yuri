@@ -1,13 +1,14 @@
 package net.minecraft.client.gui;
 
-import java.io.IOException;
-
 import ddlc.yuri.api.gui.main.YuriMenu;
+import ddlc.yuri.utils.render.FontUtils;
 import net.minecraft.client.gui.achievement.GuiAchievements;
 import net.minecraft.client.gui.achievement.GuiStats;
 import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.realms.RealmsBridge;
+
+import java.io.IOException;
 
 public class GuiIngameMenu extends GuiScreen
 {
@@ -97,7 +98,7 @@ public class GuiIngameMenu extends GuiScreen
     public void drawScreen(int mouseX, int mouseY, float partialTicks)
     {
         this.drawDefaultBackground();
-        this.drawCenteredString(this.fontRendererObj, I18n.format("menu.game", new Object[0]), this.width / 2, 40, 16777215);
+        FontUtils.getFont("sf", 18).drawCenteredString("Yuri Client Paused...", this.width / 2, 40, 16777215);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 }

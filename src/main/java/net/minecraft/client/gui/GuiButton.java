@@ -1,14 +1,24 @@
 package net.minecraft.client.gui;
 
+import ddlc.yuri.api.font.CustomFontRenderer;
+import ddlc.yuri.api.gui.click.novoline.GuiTheme;
+import ddlc.yuri.managers.impl.ColorManager;
+import ddlc.yuri.utils.render.FontUtils;
+import ddlc.yuri.utils.render.RenderUtils;
+import ddlc.yuri.utils.render.RoundedUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
 import net.minecraft.client.audio.SoundHandler;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ResourceLocation;
 
+import java.awt.*;
+
 public class GuiButton extends Gui
 {
-    protected static final ResourceLocation buttonTextures = new ResourceLocation("textures/gui/widgets.png");
+    private static final Color BG_COLOR = new Color(0, 0, 0, 130);
+    private static final Color DISABLED_TEXT_COLOR = new Color(120, 120, 120, 180);
+
     protected int width;
     protected int height;
     public int xPosition;
@@ -18,6 +28,7 @@ public class GuiButton extends Gui
     public boolean enabled;
     public boolean visible;
     protected boolean hovered;
+    public float hoverAnim;
 
     public GuiButton(int buttonId, int x, int y, String buttonText)
     {
@@ -26,15 +37,13 @@ public class GuiButton extends Gui
 
     public GuiButton(int buttonId, int x, int y, int widthIn, int heightIn, String buttonText)
     {
-        this.width = 200;
-        this.height = 20;
+        this.width = widthIn;
+        this.height = heightIn;
         this.enabled = true;
         this.visible = true;
         this.id = buttonId;
         this.xPosition = x;
         this.yPosition = y;
-        this.width = widthIn;
-        this.height = heightIn;
         this.displayString = buttonText;
     }
 
@@ -58,29 +67,53 @@ public class GuiButton extends Gui
     {
         if (this.visible)
         {
-            FontRenderer fontrenderer = mc.fontRendererObj;
-            mc.getTextureManager().bindTexture(buttonTextures);
-            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             this.hovered = mouseX >= this.xPosition && mouseY >= this.yPosition && mouseX < this.xPosition + this.width && mouseY < this.yPosition + this.height;
-            int i = this.getHoverState(this.hovered);
+
+            // Smooth hover animation calculation matching MenuButton
+            float target = (this.hovered && this.enabled) ? 1.00f : 0.00f;
+            float speed = 12f / 1000f;
+            this.hoverAnim += (target - this.hoverAnim) * (1f - (float) Math.exp(-speed * RenderUtils.delta));
+
             GlStateManager.enableBlend();
             GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
-            GlStateManager.blendFunc(770, 771);
-            this.drawTexturedModalRect(this.xPosition, this.yPosition, 0, 46 + i * 20, this.width / 2, this.height);
-            this.drawTexturedModalRect(this.xPosition + this.width / 2, this.yPosition, 200 - this.width / 2, 46 + i * 20, this.width / 2, this.height);
+
+            // Draw modern background box & theme outline
+            Color outlineColor = this.enabled ? ColorManager.getColor() : new Color(60, 60, 60, 180);
+            RoundedUtils.drawRoundOutline(this.xPosition, this.yPosition, this.width, this.height, 6f, -0.5f, hovered ? BG_COLOR.brighter().brighter().brighter().brighter().brighter().brighter() : BG_COLOR, outlineColor);
+
+            // Draw animated hover underline expansion
+            if (this.hoverAnim > 0.001f && this.enabled)
+            {
+                float ease = 1f - (1f - this.hoverAnim) * (1f - this.hoverAnim);
+                float animatedWidth = this.width * ease;
+                float animatedX = this.xPosition + (this.width - animatedWidth) / 2f;
+                float animatedHeight = 1.5f;
+                float animatedY = this.yPosition + this.height - animatedHeight;
+
+                RoundedUtils.drawRoundedRect(animatedX, animatedY, animatedWidth, animatedHeight, 0.2f, ColorManager.getColor());
+            }
+
             this.mouseDragged(mc, mouseX, mouseY);
-            int j = 14737632;
 
-            if (!this.enabled)
+            // Text color interpolation
+            int textColor = !this.enabled
+                    ? DISABLED_TEXT_COLOR.getRGB()
+                    : RenderUtils.interpolateColor(GuiTheme.TEXT, ColorManager.getColor(), this.hoverAnim);
+
+            // Render text with custom font (fallback to vanilla font renderer if null)
+            CustomFontRenderer fr = FontUtils.getFont("sf", 18);
+            if (fr != null)
             {
-                j = 10526880;
+                float textX = this.xPosition + (this.width - fr.getStringWidth(this.displayString)) / 2f;
+                float textY = this.yPosition + (this.height - 8f) / 2f;
+                fr.drawStringWithShadow(this.displayString, textX, textY, textColor);
             }
-            else if (this.hovered)
+            else
             {
-                j = 16777120;
+                this.drawCenteredString(mc.fontRendererObj, this.displayString, this.xPosition + this.width / 2, this.yPosition + (this.height - 8) / 2, textColor);
             }
 
-            this.drawCenteredString(fontrenderer, this.displayString, this.xPosition + this.width / 2, this.yPosition + (this.height - 8) / 2, j);
+            GlStateManager.disableBlend();
         }
     }
 

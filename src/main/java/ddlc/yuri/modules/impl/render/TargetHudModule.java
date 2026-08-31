@@ -2,6 +2,7 @@ package ddlc.yuri.modules.impl.render;
 
 import ddlc.yuri.Yuri;
 import ddlc.yuri.api.events.annotations.EventHook;
+import ddlc.yuri.api.events.annotations.EventPriority;
 import ddlc.yuri.api.events.impl.render.Render2DEvent;
 import ddlc.yuri.api.events.impl.render.Shader2DEvent;
 import ddlc.yuri.api.events.impl.world.WorldJoinEvent;
@@ -91,7 +92,7 @@ public final class TargetHudModule extends Module {
         targetStates.clear();
     }
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onRender2D(Render2DEvent event) {
         long now = System.currentTimeMillis();
         float delta = lastRender2DTime == 0 ? 0f : (now - lastRender2DTime) / 500f;
@@ -132,7 +133,7 @@ public final class TargetHudModule extends Module {
         renderGrid(allRenderStates, draggable, modeInstance, now, delta);
     }
 
-    @EventHook
+    @EventHook(EventPriority.VERY_HIGH)
     public void onShader2D(Shader2DEvent event) {
         if (event.getShaderType() == Shader2DEvent.ShaderType.BLUR) return;
 

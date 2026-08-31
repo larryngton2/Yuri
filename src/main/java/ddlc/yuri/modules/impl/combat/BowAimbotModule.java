@@ -6,12 +6,15 @@ import ddlc.yuri.api.events.impl.player.PreUpdateEvent;
 import ddlc.yuri.api.events.impl.render.Render2DEvent;
 import ddlc.yuri.api.properties.Property;
 import ddlc.yuri.api.properties.impl.ModeProperty;
+import ddlc.yuri.api.properties.impl.MultiModeProperty;
 import ddlc.yuri.api.properties.impl.NumberProperty;
 import ddlc.yuri.managers.impl.RotationManager;
+import ddlc.yuri.managers.impl.TargetManager;
 import ddlc.yuri.modules.Module;
 import ddlc.yuri.modules.ModuleCategory;
 import ddlc.yuri.modules.ModuleInfo;
 import ddlc.yuri.modules.impl.misc.AntiBotModule;
+import ddlc.yuri.modules.impl.player.ScaffoldModule;
 import ddlc.yuri.utils.client.MathUtils;
 import ddlc.yuri.utils.player.FriendUtils;
 import net.minecraft.entity.Entity;
@@ -20,29 +23,27 @@ import net.minecraft.entity.monster.IMob;
 import net.minecraft.entity.passive.IAnimals;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemBow;
-import net.minecraft.util.MathHelper;
+import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.util.Vec3;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 
-@ModuleInfo(label = "Bow Aimbot", category = ModuleCategory.COMBAT, description = "Automatically aims your bow at targets")
+@ModuleInfo(label = "Bow Aimbot", category = ModuleCategory.COMBAT, description = "Automatically aims your bow at targets using advanced trajectory prediction")
 public final class BowAimbotModule extends Module {
 
-    // the one thing nazuna actually made that was alright. so yes I did port this from old euphoria. no credit to nazuna, fuck him. -lumie
-
+    private final MultiModeProperty<TargetManager.Targets> targets = new MultiModeProperty<>("Targets", TargetManager.Targets.PLAYERS, TargetManager.Targets.HOSTILES, TargetManager.Targets.TEAMMATES);
     private final ModeProperty<TargetMode> mode = new ModeProperty<>("Mode", TargetMode.DISTANCE);
-    private final NumberProperty range = new NumberProperty("Range", 32, 0, 256, 1);
+    private final NumberProperty range = new NumberProperty("Range", 80, 0, 256, 1);
     private final Property<Boolean> lockView = new Property<Boolean>("Lock View", true);
     private final NumberProperty minRotSpeed = new NumberProperty("Min Rotation Speed", 3, 0, 10, 0.5f, () -> !lockView.getValue());
     private final NumberProperty maxRotSpeed = new NumberProperty("Max Rotation Speed", 7, 0, 10, 0.5f, () -> !lockView.getValue());
-    private final Property<Boolean> monsters = new Property<Boolean>("Monsters", false);
-    private final Property<Boolean> players = new Property<Boolean>("Players", true);
-    private final Property<Boolean> animals = new Property<Boolean>("Animals", false);
-    private final Property<Boolean> invisibles = new Property<Boolean>("Invisible", false);
+    private final Property<Boolean> throughWalls = new Property<>("Through Walls", false);
 
     private final ArrayList<Entity> attackList = new ArrayList<>();
-
+    public static EntityLivingBase target;
     private int currentTarget;
+    public float velocity;
 
     public enum TargetMode {
         HEALTH("Health"),
@@ -64,11 +65,19 @@ public final class BowAimbotModule extends Module {
     public void onDisable() {
         super.onDisable();
         attackList.clear();
+        target = null;
         currentTarget = 0;
     }
 
     @EventHook
     public void onPreUpdate(PreUpdateEvent event) {
+        setSuffix(mode.getValue().toString());
+
+        if (mc.thePlayer == null || mc.theWorld == null || Yuri.INSTANCE.getModuleManager().getModule(ScaffoldModule.class).isEnabled()) {
+            attackList.clear();
+            target = null;
+            return;
+        }
 
         attackList.clear();
 
@@ -79,60 +88,39 @@ public final class BowAimbotModule extends Module {
             }
         }
 
-        if (attackList.isEmpty() || !mc.thePlayer.isUsingItem() || mc.thePlayer.getCurrentEquippedItem() == null || !(mc.thePlayer.getCurrentEquippedItem().getItem() instanceof ItemBow)) {
-            setSuffix(mode.getValue().toString());
-            return;
-        }
-
-        if (!mc.thePlayer.isUsingItem()) {
-            return;
-        }
-
-        if (mc.thePlayer.getCurrentEquippedItem() == null) {
-            return;
-        }
-
-        if (!(mc.thePlayer.getCurrentEquippedItem().getItem() instanceof ItemBow)) {
+        if (attackList.isEmpty() || mc.thePlayer.getHeldItem() == null || mc.thePlayer.getHeldItem().getItem() == null || !(mc.thePlayer.getHeldItem().getItem() instanceof ItemBow) || !mc.thePlayer.isUsingItem() || mc.thePlayer.getItemInUseDuration() <= 1) {
+            target = null;
             return;
         }
 
         sortTargets();
         currentTarget = Math.min(currentTarget, attackList.size() - 1);
-        Entity target = attackList.get(currentTarget);
-        setSuffix(target.getName()); ;
+        target = (EntityLivingBase) attackList.get(currentTarget);
 
-        int bowCurrentCharge = mc.thePlayer.getItemInUseDuration();
-
-        float bowVelocity = bowCurrentCharge / 20.0F;
-        bowVelocity = (bowVelocity * bowVelocity + bowVelocity * 2.0F) / 3.0F;
-        bowVelocity = MathHelper.clamp_float(bowVelocity, 0.0F, 1.0F);
-
-        if (bowVelocity < 0.1F) {
+        if (target == null) {
             return;
         }
 
-        double v = bowVelocity * 3.0F;
-        double g = 0.05000000074505806D;
+        if (!throughWalls.getValue() && !canSeeEntity(target)) {
+            return;
+        }
 
-        EntityLivingBase livingTarget = (EntityLivingBase) target;
+        setSuffix(target.getName());
 
-        double xDistance = target.posX - mc.thePlayer.posX
-                + (target.posX - target.lastTickPosX)
-                * (bowVelocity * 10.0F);
+        float[] rotations = getBowRotations(target);
+        if (rotations == null) return;
 
-        double zDistance = target.posZ - mc.thePlayer.posZ
-                + (target.posZ - target.lastTickPosZ)
-                * (bowVelocity * 10.0F);
+        float yaw = rotations[0];
+        float pitch = rotations[1];
 
-        float yaw = (float) Math.toDegrees(Math.atan2(zDistance, xDistance)) - 90.0F;
-        float pitch = (float) -Math.toDegrees(getLaunchAngle(livingTarget, v, g)) - 3.0F;
-
-        float rotSpeed = (float) MathUtils.getRandom(
-                minRotSpeed.getValue(),
-                maxRotSpeed.getValue()
-        );
-
-        if (!lockView.getValue()) {
+        if (lockView.getValue()) {
+            mc.thePlayer.rotationYaw = yaw;
+            mc.thePlayer.rotationPitch = pitch;
+        } else {
+            float rotSpeed = (float) MathUtils.getRandom(
+                    minRotSpeed.getValue(),
+                    maxRotSpeed.getValue()
+            );
             RotationManager.setRotations(
                     yaw, pitch, rotSpeed,
                     RotationManager.MovementFix.NORMAL
@@ -142,70 +130,21 @@ public final class BowAimbotModule extends Module {
 
     @EventHook
     public void onRender2D(Render2DEvent event) {
-        if (attackList.isEmpty()) {
+        if (target == null || attackList.isEmpty() || mc.thePlayer.getHeldItem() == null || !(mc.thePlayer.getHeldItem().getItem() instanceof ItemBow) || !mc.thePlayer.isUsingItem()) {
             return;
         }
-
-        Entity target = attackList.get(currentTarget);
-
-        if (!mc.thePlayer.isUsingItem()) {
-            return;
-        }
-
-        if (mc.thePlayer.getCurrentEquippedItem() == null) {
-            return;
-        }
-
-        if (!(mc.thePlayer.getCurrentEquippedItem().getItem() instanceof ItemBow)) {
-            return;
-        }
-
-        int bowCurrentCharge = mc.thePlayer.getItemInUseDuration();
-
-        float bowVelocity = bowCurrentCharge / 20.0F;
-        bowVelocity = (bowVelocity * bowVelocity + bowVelocity * 2.0F) / 3.0F;
-        bowVelocity = MathHelper.clamp_float(bowVelocity, 0.0F, 1.0F);
-
-        if (bowVelocity < 0.1F) {
-            return;
-        }
-
-        double v = bowVelocity * 3.0F;
-        double g = 0.05000000074505806D;
-
-        EntityLivingBase livingTarget = (EntityLivingBase) target;
-
-        double xDistance = target.posX - mc.thePlayer.posX
-                + (target.posX - target.lastTickPosX)
-                * (bowVelocity * 10.0F);
-
-        double zDistance = target.posZ - mc.thePlayer.posZ
-                + (target.posZ - target.lastTickPosZ)
-                * (bowVelocity * 10.0F);
-
-        float yaw = (float) Math.toDegrees(Math.atan2(zDistance, xDistance)) - 90.0F;
-        float pitch = (float) -Math.toDegrees(getLaunchAngle(livingTarget, v, g)) - 3.0F;
 
         if (lockView.getValue()) {
-            mc.thePlayer.rotationYaw = yaw;
-            mc.thePlayer.rotationPitch = pitch;
+            float[] rotations = getBowRotations(target);
+            if (rotations != null) {
+                mc.thePlayer.rotationYaw = rotations[0];
+                mc.thePlayer.rotationPitch = rotations[1];
+            }
         }
     }
 
     public boolean isValidTarget(Entity entity) {
-        if (entity == null) {
-            return false;
-        }
-
-        if (entity == mc.thePlayer) {
-            return false;
-        }
-
-        if (entity == mc.thePlayer.ridingEntity) {
-            return false;
-        }
-
-        if (!entity.isEntityAlive()) {
+        if (entity == null || entity == mc.thePlayer || entity == mc.thePlayer.ridingEntity || !entity.isEntityAlive()) {
             return false;
         }
 
@@ -213,25 +152,44 @@ public final class BowAimbotModule extends Module {
             return false;
         }
 
-        if (entity.isInvisible() && !invisibles.getValue()) {
-            return false;
-        }
-
-        if (entity instanceof EntityPlayer) {
-
-            if (!players.getValue()) {
+        if (entity instanceof EntityPlayer && !targets.getValue().contains(TargetManager.Targets.TEAMMATES)) {
+            if (TargetManager.inTeam(mc.thePlayer, (EntityPlayer) entity)) {
                 return false;
             }
-
-            return !FriendUtils.isFriend(entity.getName()) && !Yuri.INSTANCE.getModuleManager().getModule(AntiBotModule.class).isBot((EntityPlayer) entity);
         }
 
-        if (entity instanceof IMob) {
-            return monsters.getValue();
-        }
-
-        if (entity instanceof IAnimals && !(entity instanceof IMob)) {
-            return animals.getValue();
+        for (TargetManager.Targets t : targets.getValue()) {
+            switch (t) {
+                case PLAYERS:
+                    if (entity instanceof EntityPlayer) {
+                        boolean isFriend = FriendUtils.isFriend(entity.getName());
+                        boolean isBot = Yuri.INSTANCE.getModuleManager().getModule(AntiBotModule.class).isBot((EntityPlayer) entity);
+                        if (!isFriend && !isBot) return true;
+                    }
+                    break;
+                case HOSTILES:
+                    if (entity instanceof IMob) {
+                        return true;
+                    }
+                    break;
+                case ANIMALS:
+                    if (entity instanceof IAnimals && !(entity instanceof IMob)) {
+                        return true;
+                    }
+                    break;
+                case TEAMMATES:
+                    if (entity instanceof EntityPlayer && TargetManager.inTeam(mc.thePlayer, (EntityPlayer) entity)) {
+                        return true;
+                    }
+                    break;
+                case INVISIBLES:
+                    if (entity.isInvisible()) {
+                        return true;
+                    }
+                    break;
+                default:
+                    break;
+            }
         }
 
         return false;
@@ -239,11 +197,9 @@ public final class BowAimbotModule extends Module {
 
     public void sortTargets() {
         switch (mode.getValue()) {
-
             case DISTANCE:
                 attackList.sort(Comparator.comparingDouble(ent -> mc.thePlayer.getDistanceToEntity(ent)));
                 break;
-
             case HEALTH:
                 attackList.sort((ent1, ent2) -> Float.compare(
                         ((EntityLivingBase) ent1).getHealth(),
@@ -253,37 +209,47 @@ public final class BowAimbotModule extends Module {
         }
     }
 
-    private float getLaunchAngle(EntityLivingBase targetEntity, double v, double g) {
-
-        double yDif = targetEntity.posY + targetEntity.getEyeHeight() / 2.0F
-                - (mc.thePlayer.posY + mc.thePlayer.getEyeHeight());
-
-        double xDif = targetEntity.posX - mc.thePlayer.posX;
-        double zDif = targetEntity.posZ - mc.thePlayer.posZ;
-
-        double xCoord = Math.sqrt(xDif * xDif + zDif * zDif);
-
-        return theta(v + 2, g, xCoord, yDif);
-    }
-
-    private float theta(double v, double g, double x, double y) {
-        double yv = 2.0D * y * (v * v);
-        double gx = g * (x * x);
-        double g2 = g * (gx + yv);
-        double insqrt = v * v * v * v - g2;
-
-        if (insqrt < 0) {
-            return 0;
+    public float[] getBowRotations(EntityLivingBase entity) {
+        this.velocity = (float)(72000 - mc.thePlayer.getItemInUseCount()) / 20.0F;
+        this.velocity = (this.velocity * this.velocity + this.velocity * 2.0F) / 3.0F;
+        if (this.velocity > 1.0F) {
+            this.velocity = 1.0F;
         }
 
-        double sqrt = Math.sqrt(insqrt);
+        double d = (double)mc.thePlayer.getDistanceToEntity(entity) / 2.5;
+        double posX = entity.posX + (entity.posX - entity.prevPosX) * d - mc.thePlayer.posX;
+        double posY = entity.posY
+                + (entity.posY - entity.prevPosY) * 1.0
+                + (double)entity.height * 0.5
+                - mc.thePlayer.posY
+                - (double)mc.thePlayer.getEyeHeight();
+        double posZ = entity.posZ + (entity.posZ - entity.prevPosZ) * d - mc.thePlayer.posZ;
 
-        double numerator = v * v + sqrt;
-        double numerator2 = v * v - sqrt;
+        float yaw = (float)Math.toDegrees(Math.atan2(posZ, posX)) - 90.0F;
+        double hDistance = Math.sqrt(posX * posX + posZ * posZ);
+        double hDistanceSq = hDistance * hDistance;
+        float g = 0.006F;
+        float velocitySq = this.velocity * this.velocity;
+        float velocityPow4 = velocitySq * velocitySq;
 
-        double atan1 = Math.atan2(numerator, g * x);
-        double atan2 = Math.atan2(numerator2, g * x);
+        float neededPitch = (float)(
+                -Math.toDegrees(
+                        Math.atan(
+                                ((double)velocitySq - Math.sqrt((double)velocityPow4 - (double)g * ((double)g * hDistanceSq + 2.0 * posY * (double)velocitySq)))
+                                        / ((double)g * hDistance)
+                        )
+                )
+        );
 
-        return (float) Math.min(atan1, atan2);
+        return Float.isNaN(neededPitch)
+                ? new float[]{mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch}
+                : new float[]{yaw, neededPitch};
+    }
+
+    private boolean canSeeEntity(Entity entity) {
+        Vec3 eyes = mc.thePlayer.getPositionEyes(1.0f);
+        Vec3 targetPos = new Vec3(entity.posX, entity.posY + entity.getEyeHeight(), entity.posZ);
+        MovingObjectPosition result = mc.theWorld.rayTraceBlocks(eyes, targetPos, false, true, false);
+        return result == null;
     }
 }

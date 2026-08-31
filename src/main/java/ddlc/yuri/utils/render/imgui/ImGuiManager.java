@@ -7,13 +7,15 @@ import imgui.ImFontConfig;
 import imgui.ImGui;
 import imgui.ImGuiIO;
 import imgui.ImGuiStyle;
+import imgui.flag.ImGuiKey;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ResourceLocation;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 
-import java.awt.Color;
+import java.awt.*;
 import java.io.InputStream;
 import java.util.Map;
 
@@ -39,12 +41,51 @@ public final class ImGuiManager {
         if (!initialized) {
             ImGui.createContext();
             imGuiLwjgl.init();
+            setupKeyMap();
             buildFontAtlas();
             imGuiGl.init("#version 120");
             initialized = true;
         }
 
         applyStyle(style);
+    }
+
+    private void setupKeyMap() {
+        ImGuiIO io = ImGui.getIO();
+
+        // Navigation & Editing key mapping
+        io.setKeyMap(ImGuiKey.Tab, Keyboard.KEY_TAB);
+        io.setKeyMap(ImGuiKey.LeftArrow, Keyboard.KEY_LEFT);
+        io.setKeyMap(ImGuiKey.RightArrow, Keyboard.KEY_RIGHT);
+        io.setKeyMap(ImGuiKey.UpArrow, Keyboard.KEY_UP);
+        io.setKeyMap(ImGuiKey.DownArrow, Keyboard.KEY_DOWN);
+        io.setKeyMap(ImGuiKey.PageUp, Keyboard.KEY_PRIOR);
+        io.setKeyMap(ImGuiKey.PageDown, Keyboard.KEY_NEXT);
+        io.setKeyMap(ImGuiKey.Home, Keyboard.KEY_HOME);
+        io.setKeyMap(ImGuiKey.End, Keyboard.KEY_END);
+        io.setKeyMap(ImGuiKey.Insert, Keyboard.KEY_INSERT);
+        io.setKeyMap(ImGuiKey.Delete, Keyboard.KEY_DELETE);
+        io.setKeyMap(ImGuiKey.Backspace, Keyboard.KEY_BACK);
+        io.setKeyMap(ImGuiKey.Space, Keyboard.KEY_SPACE);
+        io.setKeyMap(ImGuiKey.Enter, Keyboard.KEY_RETURN);
+        io.setKeyMap(ImGuiKey.Escape, Keyboard.KEY_ESCAPE);
+        io.setKeyMap(ImGuiKey.KeyPadEnter, Keyboard.KEY_NUMPADENTER);
+
+        // Shortcut key mapping (Ctrl + key actions)
+        io.setKeyMap(ImGuiKey.A, Keyboard.KEY_A); // Select All
+        io.setKeyMap(ImGuiKey.C, Keyboard.KEY_C); // Copy
+        io.setKeyMap(ImGuiKey.V, Keyboard.KEY_V); // Paste
+        io.setKeyMap(ImGuiKey.X, Keyboard.KEY_X); // Cut
+        io.setKeyMap(ImGuiKey.Y, Keyboard.KEY_Y); // Redo
+        io.setKeyMap(ImGuiKey.Z, Keyboard.KEY_Z); // Undo
+    }
+
+    private void updateModifiers() {
+        ImGuiIO io = ImGui.getIO();
+        io.setKeyCtrl(Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL));
+        io.setKeyShift(Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT));
+        io.setKeyAlt(Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU));
+        io.setKeySuper(Keyboard.isKeyDown(Keyboard.KEY_LMETA) || Keyboard.isKeyDown(Keyboard.KEY_RMETA));
     }
 
     public void applyStyle(ImGuiStyleSheet style) {
@@ -128,6 +169,7 @@ public final class ImGuiManager {
     public void keyEvent(int lwjglKeyCode, boolean down) {
         if (lwjglKeyCode >= 0 && lwjglKeyCode < 512) {
             ImGui.getIO().setKeysDown(lwjglKeyCode, down);
+            updateModifiers();
         }
     }
 
@@ -140,6 +182,7 @@ public final class ImGuiManager {
     }
 
     public void newFrame(float width, float height) {
+        updateModifiers();
         float delta = 1.0f / Math.max(Minecraft.getDebugFPS(), 1);
         imGuiLwjgl.newFrame(width, height, delta);
         ImGui.newFrame();
