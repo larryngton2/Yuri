@@ -1,8 +1,7 @@
 # Yuri Client
+[![Discord](https://img.shields.io/discord/1393759278833078413?color=5865F2&label=Join%20Discord&logo=discord&logoColor=white&style=for-the-badge")](https://discord.gg/8VhKD2QQHc)
 
 [![Download](https://img.shields.io/github/v/release/unleg1t/Yuri?style=for-the-badge)](https://github.com/unleg1t/Yuri/releases)
-
-[![Discord](https://img.shields.io/discord/1393759278833078413?color=5865F2&label=Join%20Discord&logo=discord&logoColor=white&style=for-the-badge")](https://discord.gg/8VhKD2QQHc)
 
 **Yuri is a clean, Optifine 1.8.9-based Minecraft hacked client that can bypass any anti-cheat and has smooth, polished visuals inspired by Nursultan, Opal, and Pulsive.**
 
