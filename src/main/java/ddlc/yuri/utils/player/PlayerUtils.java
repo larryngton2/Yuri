@@ -306,14 +306,12 @@ public class PlayerUtils implements IMinecraft {
         int posY = (int) Math.floor(position.yCoord);
         int posZ = (int) Math.floor(position.zCoord);
 
-        // 1. Check Horizontal Neighbors (North, South, East, West)
         checkAndAddFacing(possibleFacings, posX, posY, posZ - 1, EnumFacing.SOUTH, 0, 0, -1);
         checkAndAddFacing(possibleFacings, posX, posY, posZ + 1, EnumFacing.NORTH, 0, 0, 1);
         checkAndAddFacing(possibleFacings, posX - 1, posY, posZ, EnumFacing.EAST,  -1, 0, 0);
         checkAndAddFacing(possibleFacings, posX + 1, posY, posZ, EnumFacing.WEST,   1, 0, 0);
 
         if (!possibleFacings.isEmpty()) {
-            // Add rotational noise (±15 degrees) so face selection isn't strictly robotic
             double jitter = (ThreadLocalRandom.current().nextDouble() - 0.5) * 30.0;
             double currentYaw = (RotationManager.rotations.x % 360 + 90) + jitter;
 
@@ -326,7 +324,6 @@ public class PlayerUtils implements IMinecraft {
                 return Math.abs(MathUtils.wrappedDifference(facingAngle, currentYaw));
             }));
 
-            // 25% chance to pick the 2nd best face if its angle alignment is close (bypasses static pattern flags)
             if (possibleFacings.size() > 1 && ThreadLocalRandom.current().nextDouble() < 0.25) {
                 return possibleFacings.get(1);
             }
@@ -334,7 +331,6 @@ public class PlayerUtils implements IMinecraft {
             return possibleFacings.get(0);
         }
 
-        // 2. Vertical Neighbors (Down / Up)
         if (checkBlock(posX, posY - 1, posZ)) {
             return new EnumFacingOffset(EnumFacing.UP, new Vec3(0, -1, 0));
         } else if (downwards && checkBlock(posX, posY + 1, posZ)) {

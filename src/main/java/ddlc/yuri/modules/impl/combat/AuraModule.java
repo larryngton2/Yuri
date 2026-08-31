@@ -105,6 +105,7 @@ public class AuraModule extends Module {
         NCP("NCP"),
         LEGIT("Legit"),
         HYPIXEL("Hypixel"),
+        PREDICTIVE("Predictive"),
         NONE("None");
 
         public final String name;
@@ -120,7 +121,6 @@ public class AuraModule extends Module {
     }
 
     public static EntityLivingBase target;
-    private boolean hitSlow = false;
     public static boolean autoBlocking = false;
     public static boolean canAttack = true;
     private static final TimerUtils attackTimer = new TimerUtils();
@@ -131,20 +131,28 @@ public class AuraModule extends Module {
     private Vec3 smoothedBodyPoint;
     private static final TimerUtils blockTimer = new TimerUtils();
 
+    private int previousTargetId = -1;
+    private double previousTargetDistance = -1.0D;
+
     @EventHook
     public void onPreUpdate(PreUpdateEvent event) {
         setSuffix(mode.getValue().toString());
 
-        if (mc.thePlayer == null || mc.theWorld == null || Yuri.INSTANCE.getModuleManager().getModule(ScaffoldModule.class).isEnabled() || (target != null && !throughWalls.getValue() && !canSeeEntity(target))) {
-            resetCombatState();
+        if (mc.thePlayer == null || mc.theWorld == null || Yuri.INSTANCE.getModuleManager().getModule(ScaffoldModule.class).isEnabled()) {
+            if (target != null || autoBlocking) {
+                resetCombatState();
+            }
             return;
         }
 
         TargetManager.setTargets(targets.getValue());
         getTarget();
 
-        if (target == null) {
+        if (target != null && !throughWalls.getValue() && !canSeeEntity(target)) {
             target = null;
+        }
+
+        if (target == null) {
             unblock();
             canAttack = true;
             return;
@@ -158,8 +166,7 @@ public class AuraModule extends Module {
             }
         }
 
-        if (ab.getValue() == AutoBlock.LEGIT &&
-                mc.gameSettings.keyBindAttack.isPressed()) {
+        if (ab.getValue() == AutoBlock.LEGIT && mc.gameSettings.keyBindAttack.isPressed()) {
             mc.gameSettings.keyBindAttack.setPressed(false);
         }
 
@@ -185,8 +192,6 @@ public class AuraModule extends Module {
 
     @EventHook
     public void onHitSlowDown(HitSlowDownEvent e) {
-        hitSlow = true;
-
         if (rotations.getValue() == Rotations.POLAR) {
             PolarRotationManager.triggerFlick(polarFlickChance.getValue().floatValue());
         }
@@ -271,6 +276,63 @@ public class AuraModule extends Module {
         return new Vector2f(rot[0], rot[1]);
     }
 
+    private double wrapAngleTo180(double angle) {
+        angle %= 360.0D;
+        if (angle >= 180.0D) angle -= 360.0D;
+        if (angle < -180.0D) angle += 360.0D;
+        return angle;
+    }
+
+    private boolean isFacingPlayer(EntityLivingBase target) {
+        if (target == null || mc.thePlayer == null) return false;
+        double dx = mc.thePlayer.posX - target.posX;
+        double dy = (mc.thePlayer.posY + mc.thePlayer.getEyeHeight()) - (target.posY + target.getEyeHeight());
+        double dz = mc.thePlayer.posZ - target.posZ;
+        double horizontalDistance = Math.sqrt(dx * dx + dz * dz);
+        if (horizontalDistance < 0.001D) return true;
+        double targetYaw = Math.toDegrees(Math.atan2(-dx, dz));
+        double yawDifference = wrapAngleTo180(target.rotationYaw - targetYaw);
+        if (Math.abs(yawDifference) > 45.0D) return false;
+        double targetPitch = Math.toDegrees(-Math.atan2(dy, horizontalDistance));
+        double pitchDifference = wrapAngleTo180(target.rotationPitch - targetPitch);
+        return Math.abs(pitchDifference) <= 55.0D;
+    }
+
+    private double getTargetClosingSpeed(EntityLivingBase target) {
+        if (target == null) return 0.0D;
+        double currentDistance = target.getDistanceToEntity(mc.thePlayer);
+        if (previousTargetId != target.getEntityId() || previousTargetDistance < 0.0D) return 0.0D;
+        return previousTargetDistance - currentDistance;
+    }
+
+    private boolean shouldPredictAttack(EntityLivingBase target) {
+        if (target == null || mc.thePlayer == null) return false;
+        if (target.isDead || target.getHealth() <= 0.0F) return false;
+        double distance = target.getDistanceToEntity(mc.thePlayer);
+        if (distance <= 2.75D) return true;
+        if (distance > 3.35D) return false;
+        if (target.isSwingInProgress && isFacingPlayer(target)) return true;
+        double closingSpeed = getTargetClosingSpeed(target);
+        if (distance <= 3.15D && isFacingPlayer(target) && closingSpeed > 0.01D) return true;
+        if (target.isSprinting() && distance <= 3.35D && isFacingPlayer(target) && closingSpeed > 0.0D) return true;
+        return false;
+    }
+
+    private void updatePredictTargetState(EntityLivingBase target) {
+        if (target == null) {
+            previousTargetId = -1;
+            previousTargetDistance = -1.0D;
+            return;
+        }
+        double distance = target.getDistanceToEntity(mc.thePlayer);
+        if (previousTargetId != target.getEntityId()) {
+            previousTargetId = target.getEntityId();
+            previousTargetDistance = distance;
+            return;
+        }
+        previousTargetDistance = distance;
+    }
+
     private void autoblock() {
         if (mc.thePlayer == null || mc.playerController == null) return;
 
@@ -293,6 +355,15 @@ public class AuraModule extends Module {
                 break;
             case LEGIT:
                 mc.gameSettings.keyBindUseItem.setPressed(!readyToAttack);
+                autoBlocking = true;
+                blockTicks++;
+                if (mc.gameSettings.keyBindUseItem.isPressed() || mc.thePlayer.isUsingItem()) {
+                    blockTicks = 0;
+                }
+                canAttack = !BadPacketsManager.bad(false, false, false, true, false) && blockTicks >= 1;
+                break;
+            case PREDICTIVE:
+                mc.gameSettings.keyBindUseItem.setPressed(!readyToAttack && shouldPredictAttack(target));
                 autoBlocking = true;
                 blockTicks++;
                 if (mc.gameSettings.keyBindUseItem.isPressed() || mc.thePlayer.isUsingItem()) {
@@ -345,7 +416,7 @@ public class AuraModule extends Module {
             return;
         }
 
-        if (ab.getValue() == AutoBlock.LEGIT && mc.gameSettings.keyBindUseItem.isKeyDown()) {
+        if (ab.getValue() == AutoBlock.LEGIT || ab.getValue() == AutoBlock.PREDICTIVE) {
             mc.gameSettings.keyBindUseItem.setPressed(false);
             autoBlocking = false;
             canAttack = true;
@@ -360,7 +431,7 @@ public class AuraModule extends Module {
             return;
         }
 
-        if (InvUtils.isHoldingSword() && ab.getValue() != AutoBlock.LEGIT && ab.getValue() != AutoBlock.HYPIXEL) {
+        if (InvUtils.isHoldingSword() && ab.getValue() != AutoBlock.LEGIT && ab.getValue() != AutoBlock.HYPIXEL && ab.getValue() != AutoBlock.PREDICTIVE) {
             PacketUtils.sendPacket(new C07PacketPlayerDigging(C07PacketPlayerDigging.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, EnumFacing.DOWN));
         }
 
@@ -415,13 +486,14 @@ public class AuraModule extends Module {
         target = null;
         lastTarget = null;
         smoothedBodyPoint = null;
-        hitSlow = false;
         RotationLearnerManager.resetSmoothing();
         PolarRotationManager.reset();
         delay = 0;
         blockTimer.reset();
         blockTicks = -1;
         attackTimer.reset();
+        previousTargetId = -1;
+        previousTargetDistance = -1.0D;
     }
 
     @Override

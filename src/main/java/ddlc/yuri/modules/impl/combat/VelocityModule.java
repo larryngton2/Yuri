@@ -13,7 +13,9 @@ import ddlc.yuri.modules.Module;
 import ddlc.yuri.modules.ModuleCategory;
 import ddlc.yuri.modules.ModuleInfo;
 import ddlc.yuri.modules.impl.combat.velocity.VelocityMode;
-import ddlc.yuri.modules.impl.combat.velocity.impl.*;
+import ddlc.yuri.modules.impl.combat.velocity.impl.CancelVelocity;
+import ddlc.yuri.modules.impl.combat.velocity.impl.CustomVelocity;
+import ddlc.yuri.modules.impl.combat.velocity.impl.LegitVelocity;
 
 import java.util.EnumMap;
 import java.util.Map;
@@ -24,19 +26,17 @@ public final class VelocityModule extends Module {
     public final ModeProperty<Mode> mode = new ModeProperty<>("Mode", Mode.CANCEL);
     public final Property<Boolean> ignoreOnFire = new Property<>("Ignore On Fire", true);
 
-    public final NumberProperty xModify = new NumberProperty("Velocity X Modifier", 0.0, 1.0, 5.0, 1.0, () -> mode.getValue() == Mode.CUSTOM);
-    public final NumberProperty yModify = new NumberProperty("Velocity Y Modifier", 1.0, 1.0, 5.0, 1.0, () -> mode.getValue() == Mode.CUSTOM);
-    public final NumberProperty zModify = new NumberProperty("Velocity Z Modifier", 0.0, 1.0, 5.0, 1.0, () -> mode.getValue() == Mode.CUSTOM);
+    public final NumberProperty xModify = new NumberProperty("Velocity X Modifier", 0.0, 0.0, 5.0, 1.0, () -> mode.getValue() == Mode.CUSTOM);
+    public final NumberProperty yModify = new NumberProperty("Velocity Y Modifier", 1.0, 0.0, 5.0, 1.0, () -> mode.getValue() == Mode.CUSTOM);
+    public final NumberProperty zModify = new NumberProperty("Velocity Z Modifier", 0.0, 0.0, 5.0, 1.0, () -> mode.getValue() == Mode.CUSTOM);
 
-    public final Property<Boolean> universalReduce = new Property<>("Reduce", true, () -> mode.getValue() == Mode.UNIVERSAL);
-    public final NumberProperty attackTimes = new NumberProperty("Attack Times", 1, 1, 5, 1, () -> mode.getValue() == Mode.UNIVERSAL && universalReduce.getValue());
-    public final Property<Boolean> onlySprinting = new Property<>("Only Sprinting", true, () -> mode.getValue() == Mode.UNIVERSAL && universalReduce.getValue());
-    public final Property<Boolean> reduceWhenCanAttack = new Property<>("Reduce When Can Attack", true, () -> mode.getValue() == Mode.UNIVERSAL && universalReduce.getValue());
+    public final Property<Boolean> universalReduce = new Property<>("Reduce", true, () -> mode.getValue() == Mode.LEGIT);
+    public final NumberProperty attackTimes = new NumberProperty("Attack Times", 1, 1, 5, 1, () -> mode.getValue() == Mode.LEGIT && universalReduce.getValue());
+    public final Property<Boolean> onlySprinting = new Property<>("Only Sprinting", true, () -> mode.getValue() == Mode.LEGIT && universalReduce.getValue());
+    public final Property<Boolean> reduceWhenCanAttack = new Property<>("Reduce When Can Attack", true, () -> mode.getValue() == Mode.LEGIT && universalReduce.getValue());
 
     private enum Mode {
         LEGIT("Legit"),
-        UNIVERSAL("Universal"),
-        POLAR("Polar"),
         CANCEL("Cancel"),
         CUSTOM("Custom");
 
@@ -58,8 +58,6 @@ public final class VelocityModule extends Module {
 
         velocityMode.put(Mode.CANCEL, new CancelVelocity(this));
         velocityMode.put(Mode.LEGIT, new LegitVelocity(this));
-        velocityMode.put(Mode.UNIVERSAL, new UniversalVelocity(this));
-        velocityMode.put(Mode.POLAR, new PolarVelocity(this));
         velocityMode.put(Mode.CUSTOM, new CustomVelocity(this));
     }
 

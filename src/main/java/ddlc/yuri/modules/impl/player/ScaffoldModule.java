@@ -171,6 +171,7 @@ public final class ScaffoldModule extends Module {
     }
 
     private final TimerUtils delayTimer = new TimerUtils();
+    private final TimerUtils tellySafeTimer = new TimerUtils();
     private Vec3 targetBlock;
     private EnumFacingOffset enumFacing;
     public Vec3i offset = new Vec3i(0, 0, 0);
@@ -197,6 +198,16 @@ public final class ScaffoldModule extends Module {
     public void onPreUpdate(PreUpdateEvent event) {
         if (!isEnabled()) return;
         resetBinds(false, false, true, true, false, false);
+
+        if (mc.gameSettings.keyBindAttack.isPressed()) {
+            mc.gameSettings.keyBindAttack.setPressed(false);
+        }
+
+        if (tellySafeTimer.hasTimeElapsed(200)) {
+            mc.gameSettings.keyBindJump.setPressed(Keyboard.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()));
+        } else {
+            mc.gameSettings.keyBindJump.setPressed(true);
+        }
 
         setSuffix(mode.getValue().toString());
 
@@ -698,6 +709,7 @@ public final class ScaffoldModule extends Module {
             tellyNoPlace = false;
             this.initialBlockCount = ScaffoldUtils.countBlocks();
         }
+        tellySafeTimer.reset();
         lastRenderTime = -1L;
         recursions = 0;
         barEntry = null;
@@ -711,6 +723,7 @@ public final class ScaffoldModule extends Module {
             mc.timer.timerSpeed = 1.0f;
             SlotManager.swapBack();
             stop = false;
+            tellySafeTimer.reset();
             blocksPlaced = 0;
             blockCount = 0;
             initialBlockCount = 0;
