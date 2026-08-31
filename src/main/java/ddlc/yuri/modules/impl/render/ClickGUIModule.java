@@ -24,7 +24,7 @@ public class ClickGUIModule extends Module implements IMinecraft {
     public enum Mode {
         NOVOLINE("Novoline"),
         IMGUI("ImGui"),
-        NEVERLOSE("Neverlose");
+        KRS("Krs");
 
         public final String name;
 
@@ -78,9 +78,6 @@ public class ClickGUIModule extends Module implements IMinecraft {
     @Override
     public void onEnable() {
         switch (mode.getValue()) {
-            case NEVERLOSE:
-                mc.displayGuiScreen(Yuri.INSTANCE.getNeverloseClickGui());
-                break;
             case NOVOLINE:
                 mc.displayGuiScreen(Yuri.INSTANCE.getNovolineClickGui());
                 break;
@@ -92,9 +89,7 @@ public class ClickGUIModule extends Module implements IMinecraft {
 
     @Override
     public void onDisable() {
-        if (mc.currentScreen == Yuri.INSTANCE.getNeverloseClickGui() && !Yuri.INSTANCE.getNeverloseClickGui().isClosing()) {
-            Yuri.INSTANCE.getNeverloseClickGui().beginClose();
-        } else if (mc.currentScreen == Yuri.INSTANCE.getNovolineClickGui() && !Yuri.INSTANCE.getNovolineClickGui().isClosing()) {
+       if (mc.currentScreen == Yuri.INSTANCE.getNovolineClickGui() && !Yuri.INSTANCE.getNovolineClickGui().isClosing()) {
             Yuri.INSTANCE.getNovolineClickGui().beginClose();
         } else if (mc.currentScreen == Yuri.INSTANCE.getImGuiClickGui() && !Yuri.INSTANCE.getImGuiClickGui().isClosing()) {
             Yuri.INSTANCE.getImGuiClickGui().beginClose();

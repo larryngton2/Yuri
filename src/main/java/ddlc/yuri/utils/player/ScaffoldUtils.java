@@ -18,6 +18,7 @@ import java.util.PriorityQueue;
 public final class ScaffoldUtils {
 
     private static final Minecraft mc = Minecraft.getMinecraft();
+    private static final int HOTBAR_SIZE = 9;
 
     private ScaffoldUtils() {}
 
@@ -320,9 +321,28 @@ public final class ScaffoldUtils {
         return BlockUtils.blockRelativeToPlayer(offset.getX(), -down + offset.getY(), offset.getZ())
                 .isReplaceable(mc.theWorld, new BlockPos(mc.thePlayer).down(down));
     }
+
+    public static int findPreferredBlockSlot() {
+        int fallbackSingle = -1;
+        for (int slot = 0; slot < HOTBAR_SIZE; slot++) {
+            ItemStack stack = mc.thePlayer.inventory.mainInventory[slot];
+            if (stack == null || !(stack.getItem() instanceof ItemBlock)) continue;
+            if (BlockUtils.blacklist.contains(((ItemBlock) stack.getItem()).getBlock())) continue;
+
+            if (stack.stackSize > 1) {
+                return slot;
+            }
+            if (fallbackSingle == -1) {
+                fallbackSingle = slot;
+            }
+        }
+        return fallbackSingle;
+    }
+
     public static int countBlocks() {
         int count = 0;
-        for (ItemStack stack : mc.thePlayer.inventory.mainInventory) {
+        for (int slot = 0; slot < HOTBAR_SIZE; slot++) {
+            ItemStack stack = mc.thePlayer.inventory.mainInventory[slot];
             if (stack != null && stack.getItem() instanceof ItemBlock
                     && !BlockUtils.blacklist.contains(((ItemBlock) stack.getItem()).getBlock())) {
                 count += stack.stackSize;

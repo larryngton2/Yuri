@@ -3,7 +3,7 @@ package ddlc.yuri.modules.impl.player;
 import ddlc.yuri.api.events.annotations.EventHook;
 import ddlc.yuri.api.events.impl.client.PacketSendEvent;
 import ddlc.yuri.api.events.impl.player.MotionEvent;
-import ddlc.yuri.api.properties.impl.MultiModeProperty;
+import ddlc.yuri.api.properties.Property;
 import ddlc.yuri.api.properties.impl.NumberProperty;
 import ddlc.yuri.modules.Module;
 import ddlc.yuri.modules.ModuleCategory;
@@ -38,44 +38,39 @@ import java.util.List;
 @ModuleInfo(label = "Manager", description = "Automatically manages your inventory.", category = ModuleCategory.PLAYER)
 public final class ManagerModule extends Module {
 
-    public static MultiModeProperty<Options> options = new MultiModeProperty<>("Options", Options.NOT_MOVING, Options.DROP_SHEARS, Options.INV_ONLY, Options.SWAP_BLOCKS)
-            .depend(Options.MOVE_ARROWS, () -> !isOptionSelected(Options.DROP_ARCHERY))
-            .depend(Options.SEND_INV_PACKETS, () -> !isOptionSelected(Options.INV_ONLY));
+    private final Property<Boolean> instant = new Property<>("Instant", false);
+    private final Property<Boolean> invOnly = new Property<>("Inv Only", true);
+    private final Property<Boolean> sendInvPackets = new Property<>("Send Inv Packets", true, () -> !invOnly.getValue());
+    private final Property<Boolean> notMoving = new Property<>("Not Moving", false);
+    private final Property<Boolean> swapBlocks = new Property<>("Swap Blocks", true);
+    private final Property<Boolean> dropArchery = new Property<>("Drop Archery", false);
+    private final Property<Boolean> moveArrows = new Property<>("Move Arrows", true, () -> !dropArchery.getValue());
+    private static final Property<Boolean> dropFood = new Property<>("Drop Food", false);
+    private final Property<Boolean> dropShears = new Property<>("Drop Shears", true);
+
+    private static final Property<Boolean> manageWeapon = new Property<>("Manage Weapon", true);
+    private static final Property<Boolean> managePick = new Property<>("Manage Pickaxe", true);
+    private static final Property<Boolean> manageAxe = new Property<>("Manage Axe", true);
+    private static final Property<Boolean> manageShovel = new Property<>("Manage Shovel", true);
+    private static final Property<Boolean> manageBow = new Property<>("Manage Bow", true);
+    private static final Property<Boolean> manageBlock = new Property<>("Manage Blocks", true);
+    private static final Property<Boolean> manageGapple = new Property<>("Manage Gapple", true, () -> !dropFood.getValue());
+    private static final Property<Boolean> managePotion = new Property<>("Manage Potion", true);
+    private static final Property<Boolean> manageClutch = new Property<>("Manage Clutch", true);
+    private static final Property<Boolean> manageProjectile = new Property<>("Manage Projectile", false);
 
     private static final NumberProperty delay = new NumberProperty("Delay", 120, 0, 300, 10);
-    private static final NumberProperty slotWeapon = new NumberProperty("Weapon Slot", 1, 1, 9, 1);
-    private static final NumberProperty slotPick = new NumberProperty("Pickaxe Slot", 2, 1, 9, 1);
-    private static final NumberProperty slotAxe = new NumberProperty("Axe Slot", 3, 1, 9, 1);
-    private static final NumberProperty slotShovel = new NumberProperty("Shovel Slot", 4, 1, 9, 1);
-    private static final NumberProperty slotBow = new NumberProperty("Bow Slot", 5, 1, 9, 1);
-    private static final NumberProperty slotBlock = new NumberProperty("Block Slot", 6, 1, 9, 1);
-    private static final NumberProperty slotGapple = new NumberProperty("Gapple Slot", 7, 1, 9, 1, () -> !options.isSelected(Options.DROP_FOOD));
+    private static final NumberProperty slotWeapon = new NumberProperty("Weapon Slot", 1, 1, 9, 1, () -> manageWeapon.getValue());
+    private static final NumberProperty slotPick = new NumberProperty("Pickaxe Slot", 2, 1, 9, 1, () -> managePick.getValue());
+    private static final NumberProperty slotAxe = new NumberProperty("Axe Slot", 3, 1, 9, 1, () -> manageAxe.getValue());
+    private static final NumberProperty slotShovel = new NumberProperty("Shovel Slot", 4, 1, 9, 1, () -> manageShovel.getValue());
+    private static final NumberProperty slotBow = new NumberProperty("Bow Slot", 5, 1, 9, 1, () -> manageBow.getValue());
+    private static final NumberProperty slotBlock = new NumberProperty("Block Slot", 6, 1, 9, 1, () -> manageBlock.getValue());
+    private static final NumberProperty slotGapple = new NumberProperty("Gapple Slot", 7, 1, 9, 1, () -> manageGapple.getValue());
+    private static final NumberProperty slotPotion = new NumberProperty("Potion Slot", 8, 1, 9, 1, () -> managePotion.getValue());
+    private static final NumberProperty slotClutch = new NumberProperty("Clutch Slot", 9, 1, 9, 1, () -> manageClutch.getValue());
+    private static final NumberProperty slotProjectile = new NumberProperty("Projectile Slot", 9, 1, 9, 1, () -> manageProjectile.getValue());
 
-    private static boolean isOptionSelected(Options option) {
-        return options != null && options.isSelected(option);
-    }
-
-    public enum Options {
-        INV_ONLY("Inv Only"),
-        SEND_INV_PACKETS("Send Inv Packets"),
-        NOT_MOVING("Not Moving"),
-        SWAP_BLOCKS("Swap Blocks"),
-        DROP_ARCHERY("Drop Archery"),
-        MOVE_ARROWS("Move Arrows"),
-        DROP_FOOD("Drop Food"),
-        DROP_SHEARS("Drop Shears");
-        private final String n;
-
-        Options(String n) {
-            this.n = n;
-        }
-
-        @Override
-        public String toString() {
-            return n;
-        }
-    }
-    
     private final String[] blacklist = {"tnt", "stick", "egg", "string", "cake", "mushroom", "flint", "compass", "dyePowder", "feather", "bucket", "chest", "snow", "fish", "enchant", "exp", "anvil", "torch", "seeds", "leather", "reeds", "skull", "record", "snowball", "piston"};
     private final String[] serverItems = {"selector", "tracking compass", "(right click)", "tienda ", "perfil", "salir", "shop", "collectibles", "game", "profil", "lobby", "show all", "hub", "friends only", "cofre", "(click", "teleport", "play", "exit", "hide all", "jeux", "gadget", " (activ", "emote", "amis", "bountique", "choisir", "choose ", "recipe book", "click derecho", "todos", "teletransportador", "configuraci", "jugar de nuevo"};
     private final List<Integer> badPotionIDs = new ArrayList<>(Arrays.asList(Potion.moveSlowdown.getId(), Potion.weakness.getId(), Potion.poison.getId(), Potion.harm.getId()));
@@ -85,23 +80,26 @@ public final class ManagerModule extends Module {
 
     @EventHook
     public void onMotionEvent(MotionEvent e) {
-        setSuffix(delay.getValue().intValue() + "ms");
+        setSuffix(instant.getValue() ? "Instant" : delay.getValue().intValue() + "ms");
         if (!e.isPre() || canContinue()) return;
         if (!mc.thePlayer.isUsingItem() && (mc.currentScreen == null || mc.currentScreen instanceof GuiChat || mc.currentScreen instanceof GuiInventory || mc.currentScreen instanceof GuiIngameMenu)) {
-            if (isReady()) {
+            if (manageWeapon.getValue() && isReady()) {
                 Slot slot = ItemType.WEAPON.getSlot();
                 if (!slot.getHasStack() || !isBestWeapon(slot.getStack())) {
                     getBestWeapon();
                 }
             }
-            getBestPickaxe();
-            getBestAxe();
-            getBestShovel();
+            if (managePick.getValue()) getBestPickaxe();
+            if (manageAxe.getValue()) getBestAxe();
+            if (manageShovel.getValue()) getBestShovel();
             dropItems();
-            swapBlocks();
-            getBestBow();
+            if (manageBlock.getValue()) swapBlocks();
+            if (manageBow.getValue()) getBestBow();
+            if (manageGapple.getValue()) moveFood();
+            if (managePotion.getValue()) getBestPotion();
+            if (manageClutch.getValue()) getBestClutch();
+            if (manageProjectile.getValue()) getBestProjectile();
             moveArrows();
-            moveFood();
         }
     }
 
@@ -119,7 +117,7 @@ public final class ManagerModule extends Module {
     }
 
     private boolean isReady() {
-        return timer.hasTimeElapsed(delay.getValue());
+        return instant.getValue() || timer.hasTimeElapsed(delay.getValue());
     }
 
     public static float getDamageScore(ItemStack stack) {
@@ -163,7 +161,7 @@ public final class ManagerModule extends Module {
             if (is != null && isBadItem(is, i, false)) {
                 InvUtils.drop(i);
                 timer.reset();
-                break;
+                if (!instant.getValue()) break;
             }
         }
     }
@@ -193,7 +191,6 @@ public final class ManagerModule extends Module {
         }
     }
 
-    // stealing is true when called from the ChestStealer module because returning true = ignore, but in invmanager returning true = drop
     public boolean isBadItem(ItemStack stack, int slot, boolean stealing) {
         Item item = stack.getItem();
         String stackName = stack.getDisplayName().toLowerCase(), ulName = item.getUnlocalizedName();
@@ -204,7 +201,7 @@ public final class ManagerModule extends Module {
         }
 
         if (stealing) {
-            if (isBestWeapon(stack) || isBestAxe(stack) || isBestPickaxe(stack) || isBestBow(stack) || isBestShovel(stack)) {
+            if (isBestWeapon(stack) || isBestAxe(stack) || isBestPickaxe(stack) || isBestBow(stack) || isBestShovel(stack) || isGoodPotion(stack) || isClutchItem(stack) || getProjectileScore(stack) > 0) {
                 return false;
             }
             if (item instanceof ItemArmor) {
@@ -213,18 +210,10 @@ public final class ManagerModule extends Module {
                     if (is != null) {
                         String typeStr = "";
                         switch (type) {
-                            case 1:
-                                typeStr = "helmet";
-                                break;
-                            case 2:
-                                typeStr = "chestplate";
-                                break;
-                            case 3:
-                                typeStr = "leggings";
-                                break;
-                            case 4:
-                                typeStr = "boots";
-                                break;
+                            case 1: typeStr = "helmet"; break;
+                            case 2: typeStr = "chestplate"; break;
+                            case 3: typeStr = "leggings"; break;
+                            case 4: typeStr = "boots"; break;
                         }
                         if (stack.getUnlocalizedName().contains(typeStr) && getProtScore(is) > getProtScore(stack)) {
                             continue;
@@ -237,13 +226,20 @@ public final class ManagerModule extends Module {
             }
         }
 
-        int weaponSlot = ItemType.WEAPON.getDesiredSlot(), pickaxeSlot = ItemType.PICKAXE.getDesiredSlot(),
-                axeSlot = ItemType.AXE.getDesiredSlot(), shovelSlot = ItemType.SHOVEL.getDesiredSlot();
+        int weaponSlot = ItemType.WEAPON.getDesiredSlot();
+        int pickaxeSlot = ItemType.PICKAXE.getDesiredSlot();
+        int axeSlot = ItemType.AXE.getDesiredSlot();
+        int shovelSlot = ItemType.SHOVEL.getDesiredSlot();
 
         if (stealing || (slot != weaponSlot || !isBestWeapon(ItemType.WEAPON.getStackInSlot()))
                 && (slot != pickaxeSlot || !isBestPickaxe(ItemType.PICKAXE.getStackInSlot()))
                 && (slot != axeSlot || !isBestAxe(ItemType.AXE.getStackInSlot()))
                 && (slot != shovelSlot || !isBestShovel(ItemType.SHOVEL.getStackInSlot()))) {
+
+            if (isGoodPotion(stack) || isClutchItem(stack) || isBestProjectile(stack)) {
+                return false;
+            }
+
             if (!stealing && item instanceof ItemArmor) {
                 for (int type = 1; type < 5; type++) {
                     ItemStack is = mc.thePlayer.inventoryContainer.getSlot(type + 4).getStack();
@@ -257,14 +253,14 @@ public final class ManagerModule extends Module {
             }
 
             if ((item == Items.wheat) || item == Items.spawn_egg
-                    || (item instanceof ItemFood && options.isSelected(Options.DROP_FOOD) && !(item instanceof ItemAppleGold))
+                    || (item instanceof ItemFood && dropFood.getValue() && !(item instanceof ItemAppleGold))
                     || (item instanceof ItemPotion && isBadPotion(stack))) {
                 return true;
             } else if (!(item instanceof ItemSword) && !(item instanceof ItemTool) && !(item instanceof ItemHoe) && !(item instanceof ItemArmor)) {
-                if (options.isSelected(Options.DROP_ARCHERY) && (item instanceof ItemBow || item == Items.arrow)) {
+                if (dropArchery.getValue() && (item instanceof ItemBow || item == Items.arrow)) {
                     return true;
                 } else {
-                    return (options.isSelected(Options.DROP_SHEARS) && ulName.contains("shears")) || item instanceof ItemGlassBottle || Arrays.stream(blacklist).anyMatch(ulName::contains);
+                    return (dropShears.getValue() && ulName.contains("shears")) || item instanceof ItemGlassBottle || Arrays.stream(blacklist).anyMatch(ulName::contains);
                 }
             }
             return true;
@@ -285,6 +281,7 @@ public final class ManagerModule extends Module {
                     Slot slot2 = mc.thePlayer.inventoryContainer.getSlot(desiredSlot);
                     if (!slot2.getHasStack() || !isBestPickaxe(slot2.getStack())) {
                         swap(i, desiredSlot - 36);
+                        if (!instant.getValue()) break;
                     }
                 }
             }
@@ -303,7 +300,7 @@ public final class ManagerModule extends Module {
                     Slot slot2 = mc.thePlayer.inventoryContainer.getSlot(desiredSlot);
                     if (!slot2.getHasStack() || !isBestAxe(slot2.getStack())) {
                         swap(i, desiredSlot - 36);
-                        timer.reset();
+                        if (!instant.getValue()) break;
                     }
                 }
             }
@@ -322,7 +319,7 @@ public final class ManagerModule extends Module {
                     Slot slot2 = mc.thePlayer.inventoryContainer.getSlot(desiredSlot);
                     if (!slot2.getHasStack() || !isBestShovel(slot2.getStack())) {
                         swap(i, desiredSlot - 36);
-                        timer.reset();
+                        if (!instant.getValue()) break;
                     }
                 }
             }
@@ -344,14 +341,103 @@ public final class ManagerModule extends Module {
                     Slot slot2 = mc.thePlayer.inventoryContainer.getSlot(desiredSlot);
                     if (!slot2.getHasStack() || !isBestBow(slot2.getStack())) {
                         swap(i, desiredSlot - 36);
+                        if (!instant.getValue()) break;
                     }
                 }
             }
         }
     }
 
+    private void getBestPotion() {
+        if (!isReady()) return;
+        for (int i = 9; i < 45; i++) {
+            Slot slot = mc.thePlayer.inventoryContainer.getSlot(i);
+            if (slot.getHasStack()) {
+                ItemStack is = slot.getStack();
+                if (isGoodPotion(is)) {
+                    int desiredSlot = ItemType.POTION.getDesiredSlot();
+                    if (i == desiredSlot) return;
+                    Slot slot2 = mc.thePlayer.inventoryContainer.getSlot(desiredSlot);
+                    if (!slot2.getHasStack() || !isGoodPotion(slot2.getStack())) {
+                        swap(i, desiredSlot - 36);
+                        if (!instant.getValue()) break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void getBestClutch() {
+        if (!isReady()) return;
+        for (int i = 9; i < 45; i++) {
+            Slot slot = mc.thePlayer.inventoryContainer.getSlot(i);
+            if (slot.getHasStack()) {
+                ItemStack is = slot.getStack();
+                if (isClutchItem(is)) {
+                    int desiredSlot = ItemType.CLUTCH.getDesiredSlot();
+                    if (i == desiredSlot) return;
+                    Slot slot2 = mc.thePlayer.inventoryContainer.getSlot(desiredSlot);
+                    if (!slot2.getHasStack() || !isClutchItem(slot2.getStack())) {
+                        swap(i, desiredSlot - 36);
+                        if (!instant.getValue()) break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void getBestProjectile() {
+        if (!isReady()) return;
+        int bestSlot = -1;
+        float bestScore = 0;
+        for (int i = 9; i < 45; i++) {
+            Slot slot = mc.thePlayer.inventoryContainer.getSlot(i);
+            if (slot.getHasStack()) {
+                ItemStack is = slot.getStack();
+                float score = getProjectileScore(is);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestSlot = i;
+                }
+            }
+        }
+        if (bestSlot != -1) {
+            int desiredSlot = ItemType.PROJECTILE.getDesiredSlot();
+            if (bestSlot == desiredSlot) return;
+            Slot slot2 = mc.thePlayer.inventoryContainer.getSlot(desiredSlot);
+            if (!slot2.getHasStack() || getProjectileScore(slot2.getStack()) < bestScore) {
+                swap(bestSlot, desiredSlot - 36);
+            }
+        }
+    }
+
+    private float getProjectileScore(ItemStack stack) {
+        if (stack == null || stack.getItem() == null) return 0;
+        Item item = stack.getItem();
+        if (item == Items.snowball || item == Items.egg) {
+            return 2.0F;
+        } else if (item == Items.fishing_rod) {
+            return 1.0F;
+        }
+        return 0;
+    }
+
+    private boolean isBestProjectile(ItemStack stack) {
+        return getProjectileScore(stack) > 0;
+    }
+
+    private boolean isGoodPotion(ItemStack stack) {
+        return stack != null && stack.getItem() instanceof ItemPotion && !isBadPotion(stack);
+    }
+
+    private boolean isClutchItem(ItemStack stack) {
+        if (stack == null || stack.getItem() == null) return false;
+        Item item = stack.getItem();
+        return item == Items.water_bucket || item == Item.getItemFromBlock(Blocks.web);
+    }
+
     private void moveArrows() {
-        if (options.isSelected(Options.DROP_ARCHERY) || !options.isSelected(Options.MOVE_ARROWS) || !isReady()) return;
+        if (dropArchery.getValue() || !moveArrows.getValue() || !isReady()) return;
         for (int i = 36; i < 45; i++) {
             ItemStack is = mc.thePlayer.inventoryContainer.getSlot(i).getStack();
             if (is != null && is.getItem() == Items.arrow) {
@@ -361,6 +447,7 @@ public final class ManagerModule extends Module {
                         InvUtils.click(i, 0, true);
                         fakeClose();
                         timer.reset();
+                        if (!instant.getValue()) return;
                         break;
                     }
                 }
@@ -369,7 +456,7 @@ public final class ManagerModule extends Module {
     }
 
     private void moveFood() {
-        if (options.isSelected(Options.DROP_FOOD) || !isReady()) return;
+        if (dropFood.getValue() || !isReady()) return;
         for (int i = 9; i < 45; i++) {
             Slot slot = mc.thePlayer.inventoryContainer.getSlot(i);
             if (slot.getHasStack()) {
@@ -380,6 +467,7 @@ public final class ManagerModule extends Module {
                     Slot slot2 = mc.thePlayer.inventoryContainer.getSlot(desiredSlot);
                     if (!slot2.getHasStack() || !hasMostGapples(slot2.getStack())) {
                         swap(i, desiredSlot - 36);
+                        if (!instant.getValue()) break;
                     }
                 }
             }
@@ -403,7 +491,6 @@ public final class ManagerModule extends Module {
             }
             return true;
         }
-
     }
 
     private int getMostBlocks() {
@@ -421,11 +508,10 @@ public final class ManagerModule extends Module {
     }
 
     private void swapBlocks() {
-        if (!options.isSelected(Options.SWAP_BLOCKS) || !isReady()) return;
+        if (!swapBlocks.getValue() || !isReady()) return;
         int mostBlocksSlot = getMostBlocks();
         int desiredSlot = ItemType.BLOCK.getDesiredSlot();
         if (mostBlocksSlot != -1 && mostBlocksSlot != desiredSlot) {
-            // only switch if the hotbar slot doesn't already have blocks of the same quantity to prevent an inf loop
             Slot dss = mc.thePlayer.inventoryContainer.getSlot(desiredSlot);
             ItemStack dsis = dss.getStack();
             if (!(dsis != null && dsis.getItem() instanceof ItemBlock && dsis.stackSize >= mc.thePlayer.inventoryContainer.getSlot(mostBlocksSlot).getStack().stackSize && Arrays.stream(serverItems).noneMatch(dsis.getDisplayName().toLowerCase()::contains))) {
@@ -560,18 +646,10 @@ public final class ManagerModule extends Module {
     private boolean isBestArmor(ItemStack stack, int type) {
         String typeStr = "";
         switch (type) {
-            case 1:
-                typeStr = "helmet";
-                break;
-            case 2:
-                typeStr = "chestplate";
-                break;
-            case 3:
-                typeStr = "leggings";
-                break;
-            case 4:
-                typeStr = "boots";
-                break;
+            case 1: typeStr = "helmet"; break;
+            case 2: typeStr = "chestplate"; break;
+            case 3: typeStr = "leggings"; break;
+            case 4: typeStr = "boots"; break;
         }
         if (stack.getUnlocalizedName().contains(typeStr)) {
             float prot = getProtScore(stack);
@@ -592,7 +670,7 @@ public final class ManagerModule extends Module {
     private void fakeOpen() {
         if (!isInvOpen) {
             timer.reset();
-            if (!options.isSelected(Options.INV_ONLY) && options.isSelected(Options.SEND_INV_PACKETS))
+            if (!invOnly.getValue() && sendInvPackets.getValue())
                 PacketUtils.sendSilentPacket(new C16PacketClientStatus(C16PacketClientStatus.EnumState.OPEN_INVENTORY_ACHIEVEMENT));
             isInvOpen = true;
         }
@@ -600,7 +678,7 @@ public final class ManagerModule extends Module {
 
     private void fakeClose() {
         if (isInvOpen) {
-            if (!options.isSelected(Options.INV_ONLY) && options.isSelected(Options.SEND_INV_PACKETS))
+            if (!invOnly.getValue() && sendInvPackets.getValue())
                 PacketUtils.sendSilentPacket(new C0DPacketCloseWindow(mc.thePlayer.inventoryContainer.windowId));
             isInvOpen = false;
         }
@@ -614,7 +692,7 @@ public final class ManagerModule extends Module {
     }
 
     private boolean canContinue() {
-        return (options.isSelected(Options.INV_ONLY) && !(mc.currentScreen instanceof GuiInventory)) || (options.isSelected(Options.NOT_MOVING) && MoveUtils.isMoving());
+        return (invOnly.getValue() && !(mc.currentScreen instanceof GuiInventory)) || (notMoving.getValue() && MoveUtils.isMoving());
     }
 
     @Getter
@@ -626,7 +704,10 @@ public final class ManagerModule extends Module {
         SHOVEL(slotShovel),
         BLOCK(slotBlock),
         BOW(slotBow),
-        GAPPLE(slotGapple);
+        GAPPLE(slotGapple),
+        POTION(slotPotion),
+        CLUTCH(slotClutch),
+        PROJECTILE(slotProjectile);
 
         private final NumberProperty setting;
 

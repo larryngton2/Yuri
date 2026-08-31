@@ -28,44 +28,61 @@ import java.util.ArrayList;
         description = "Automatically steals chest loot",
         category = ModuleCategory.PLAYER)
 public final class StealerModule extends Module {
-    
+
     public final TimerUtils timer = new TimerUtils();
     public final TimerUtils startTimer = new TimerUtils();
 
-    private final NumberProperty stealDelay = new NumberProperty("Steal Delay", 50.0, 0.0, 1000.0, 25.0);
-    private final NumberProperty minDelay = new NumberProperty("Min Delay", 5.0, 0.0, 1000.0, 25.0);
-    private final NumberProperty maxDelay = new NumberProperty("Max Delay", 5.0, 0.0, 1000.0, 25.0);
-    private final Property<Boolean> stealTrashItems = new Property<Boolean>("Steal Trash Items", false);
-    private final Property<Boolean> autoClose = new Property<Boolean>("Auto Close", true);
-    private final Property<Boolean> chestName = new Property<Boolean>("Check Chest Name", false);
-    private final Property<Boolean> grabMouse = new Property<Boolean>("Grab Mouse", false);
-    public static final Property<Boolean> autoDisable = new Property<Boolean>("Auto Disable", false);
-
+    private final Property<Boolean> instant = new Property<>("Instant", false);
+    private final NumberProperty stealDelay = new NumberProperty("Steal Delay", 50.0, 0.0, 1000.0, 25.0, () -> !instant.getValue());
+    private final NumberProperty minDelay = new NumberProperty("Min Delay", 5.0, 0.0, 1000.0, 25.0, () -> !instant.getValue());
+    private final NumberProperty maxDelay = new NumberProperty("Max Delay", 5.0, 0.0, 1000.0, 25.0, () -> !instant.getValue());
+    private final Property<Boolean> stealTrashItems = new Property<>("Steal Trash Items", false);
+    private final Property<Boolean> autoClose = new Property<>("Auto Close", true);
+    private final Property<Boolean> chestName = new Property<>("Check Chest Name", false);
+    private final Property<Boolean> grabMouse = new Property<>("Grab Mouse", false);
+    public static final Property<Boolean> autoDisable = new Property<>("Auto Disable", false);
 
     private int decidedTimer = 0;
     private boolean gotItems;
     private int ticksInChest;
     private boolean lastInChest;
 
+    private boolean isValidChest() {
+        if (!(mc.currentScreen instanceof GuiChest)) {
+            return false;
+        }
+        GuiChest guiChest = (GuiChest) mc.currentScreen;
+        if (guiChest.lowerChestInventory == null) {
+            return false;
+        }
+        String name = guiChest.lowerChestInventory.getDisplayName().getUnformattedText().toLowerCase();
+        String[] menuKeywords = {"menu", "selector", "game", "shop", "server", "teleport", "lobby", "hub", "profile", "setting", "play", "vault", "collectible", "bountique", "choisir", "choose", "recipe"};
+        for (String keyword : menuKeywords) {
+            if (name.contains(keyword)) {
+                return false;
+            }
+        }
+        if (this.chestName.getValue() && !name.contains("chest") && !name.contains("container")) {
+            return false;
+        }
+        return mc.thePlayer.openContainer instanceof ContainerChest;
+    }
+
     @EventHook
     public void onPreMotion(MotionEvent event) {
-        setSuffix(maxDelay.getValue().intValue() + "ms");
+        setSuffix(instant.getValue() ? "Instant" : maxDelay.getValue().intValue() + "ms");
         if (!event.isPre()) {
             return;
         }
         if (mc.thePlayer.ticksExisted <= 60) {
             return;
         }
-        if (this.grabMouse.getValue() &&
-                mc.currentScreen instanceof GuiChest && Display.isActive()
-                && (!this.chestName.getValue() ||
-                ((GuiChest)mc.currentScreen).lowerChestInventory.getDisplayName()
-                        .getUnformattedText().contains("chest"))) {
+        if (this.grabMouse.getValue() && isValidChest() && Display.isActive()) {
             mc.mouseHelper.mouseXYChange();
             mc.mouseHelper.ungrabMouseCursor();
             mc.mouseHelper.grabMouseCursor();
         }
-        if (mc.currentScreen instanceof GuiChest) {
+        if (isValidChest()) {
             ++this.ticksInChest;
             if (this.ticksInChest * 50 > 255) {
                 this.ticksInChest = 10;
@@ -81,19 +98,30 @@ public final class StealerModule extends Module {
 
     @EventHook
     public void onTick(ClientTickEvent event) {
-
         if (mc.thePlayer.ticksExisted <= 60) {
             return;
         }
-        if (!this.lastInChest) {
+        boolean validChest = isValidChest();
+        if (!this.lastInChest && validChest) {
             this.startTimer.reset();
         }
-        this.lastInChest = mc.currentScreen instanceof GuiChest;
-        if (mc.currentScreen instanceof GuiChest) {
-            String name;
-            if (this.chestName.getValue() && !(name = ((GuiChest)mc.currentScreen)
-                    .lowerChestInventory.getDisplayName()
-                    .getUnformattedText()).toLowerCase().contains("chest")) {
+        this.lastInChest = validChest;
+        if (validChest) {
+            ContainerChest chest = (ContainerChest) mc.thePlayer.openContainer;
+            if (this.instant.getValue()) {
+                boolean tookAny = false;
+                int size = chest.getLowerChestInventory().getSizeInventory();
+                for (int i = 0; i < size; i++) {
+                    ItemStack stack = chest.getLowerChestInventory().getStackInSlot(i);
+                    if (stack != null && this.itemWhitelisted(stack) && !this.stealTrashItems.getValue()) {
+                        mc.playerController.windowClick(chest.windowId, i, 0, 1, mc.thePlayer);
+                        tookAny = true;
+                        this.gotItems = true;
+                    }
+                }
+                if (tookAny && this.autoClose.getValue()) {
+                    mc.thePlayer.closeScreen();
+                }
                 return;
             }
             if (!this.startTimer.hasTimeElapsed(stealDelay.getValue(), false)) {
@@ -105,7 +133,6 @@ public final class StealerModule extends Module {
                 this.decidedTimer = RandomUtils.nextInt(delayFirst, delaySecond);
             }
             if (this.timer.hasTimeElapsed(this.decidedTimer, false)) {
-                ContainerChest chest = (ContainerChest)mc.thePlayer.openContainer;
                 int i = 0;
                 while (i < chest.inventorySlots.size()) {
                     ItemStack stack = chest.getLowerChestInventory().getStackInSlot(i);
@@ -188,10 +215,8 @@ public final class StealerModule extends Module {
                 return p.getEffects(potion.getMetadata()).get(0).getPotionID();
             }
         }
-        catch (NullPointerException nullPointerException) {
-            // empty catch block
+        catch (NullPointerException ignored) {
         }
         return 0;
     }
-
 }

@@ -203,10 +203,12 @@ public final class ScaffoldModule extends Module {
             mc.gameSettings.keyBindAttack.setPressed(false);
         }
 
-        if (tellySafeTimer.hasTimeElapsed(200)) {
-            mc.gameSettings.keyBindJump.setPressed(Keyboard.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()));
-        } else {
-            mc.gameSettings.keyBindJump.setPressed(true);
+        if (mode.getValue() == Mode.TELLY) {
+            if (tellySafeTimer.hasTimeElapsed(200)) {
+                mc.gameSettings.keyBindJump.setPressed(Keyboard.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()));
+            } else {
+                mc.gameSettings.keyBindJump.setPressed(true);
+            }
         }
 
         setSuffix(mode.getValue().toString());
@@ -253,9 +255,13 @@ public final class ScaffoldModule extends Module {
                     Yuri.INSTANCE.getModuleManager().getModule(SpeedModule.class).isEnabled()
                             && !mc.gameSettings.keyBindJump.isKeyDown()) && MoveUtils.isMoving()) && Math.abs(mc.thePlayer.posY - startY) <= 3.0;
 
-            final int blockSlot = BlockUtils.findBlock();
+            final int blockSlot = ScaffoldUtils.findPreferredBlockSlot();
             if (blockSlot == -1) {
                 LoggingUtils.sendChatMessage("Disabled, no blocks found.");
+                mc.gameSettings.keyBindForward.setPressed(false);
+                mc.gameSettings.keyBindBack.setPressed(false);
+                mc.gameSettings.keyBindLeft.setPressed(false);
+                mc.gameSettings.keyBindRight.setPressed(false);
                 this.toggle();
                 return;
             }

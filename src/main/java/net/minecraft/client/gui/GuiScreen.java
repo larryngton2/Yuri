@@ -3,22 +3,8 @@ package net.minecraft.client.gui;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import java.awt.Toolkit;
-import java.awt.datatransfer.ClipboardOwner;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.StringSelection;
-import java.awt.datatransfer.Transferable;
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
-
 import ddlc.yuri.Yuri;
 import ddlc.yuri.modules.impl.render.ClickGUIModule;
-import ddlc.yuri.utils.render.RenderUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.inventory.*;
 import net.minecraft.client.gui.stream.GuiTwitchUserMode;
@@ -51,7 +37,18 @@ import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 import tv.twitch.chat.ChatUserInfo;
 
-import static ddlc.yuri.utils.misc.IMinecraft.mc;
+import java.awt.*;
+import java.awt.datatransfer.ClipboardOwner;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.Transferable;
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
 
 public abstract class GuiScreen extends Gui implements GuiYesNoCallback
 {
@@ -105,7 +102,7 @@ public abstract class GuiScreen extends Gui implements GuiYesNoCallback
         float logoY = (float) this.height - logoSize;
 
         if (ClickGUIModule.logoInGuis.getValue()) {
-            if (mc.currentScreen instanceof GuiInventory || mc.currentScreen instanceof GuiContainerCreative || mc.currentScreen instanceof GuiChest || mc.currentScreen instanceof GuiCrafting || mc.currentScreen instanceof GuiEnchantment || mc.currentScreen instanceof GuiFurnace || mc.currentScreen instanceof GuiRepair || mc.currentScreen == Yuri.INSTANCE.getImGuiClickGui() || mc.currentScreen == Yuri.INSTANCE.getNeverloseClickGui() || mc.currentScreen == Yuri.INSTANCE.getNovolineClickGui()) {
+            if (mc.currentScreen instanceof GuiInventory || mc.currentScreen instanceof GuiContainerCreative || mc.currentScreen instanceof GuiChest || mc.currentScreen instanceof GuiCrafting || mc.currentScreen instanceof GuiEnchantment || mc.currentScreen instanceof GuiFurnace || mc.currentScreen instanceof GuiRepair || mc.currentScreen == Yuri.INSTANCE.getImGuiClickGui() ||  mc.currentScreen == Yuri.INSTANCE.getNovolineClickGui()) {
 
                 GlStateManager.color(1.0F, 1.0F, 1.0F, alpha);
                 GlStateManager.enableBlend();

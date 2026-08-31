@@ -86,10 +86,10 @@ public final class AutoProjectileModule extends Module {
 
             if (dist < Math.max(auraRange, 4.0f) && target.hurtTime < 3) {
                 long delay = 350;
-                if (dist <= 3.0f) delay = 2000;
-                else if (dist <= 5.0f) delay = 100;
-                else if (dist <= 6.0f) delay = 150;
-                else if (dist <= 7.0f) delay = 200;
+                if (dist <= 3.0f) delay = 9999999;
+                else if (dist <= 5.0f) delay = 550;
+                else if (dist <= 6.0f) delay = 450;
+                else if (dist <= 7.0f) delay = 350;
                 else if (dist <= 8.0f) delay = 250;
 
                 long now = System.currentTimeMillis();
