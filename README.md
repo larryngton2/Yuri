@@ -1,8 +1,9 @@
 # Yuri Client
 
 [![Download](https://img.shields.io/github/v/release/unleg1t/Yuri?style=for-the-badge)](https://github.com/unleg1t/Yuri/releases)
+[![Discord](https://img.shields.io/discord/1393759278833078413?color=5865F2&label=Join%20Discord&logo=discord&logoColor=white&style=for-the-badge")](https://discord.gg/8VhKD2QQHc)
 
-**Yuri is a clean, Optifine 1.8.9-based Minecraft hacked client that can bypass any anti-cheat and has smooth, polished visuals inspired by Nursultan and Pulsive.**
+**Yuri is a clean, Optifine 1.8.9-based Minecraft hacked client that can bypass any anti-cheat and has smooth, polished visuals inspired by Nursultan, Opal, and Pulsive.**
 
 <img width="400" src="https://raw.githubusercontent.com/unleg1t/Yuri/main/ss1.png"> <img width="400" src="https://raw.githubusercontent.com/unleg1t/Yuri/main/ss2.png">
 
@@ -12,9 +13,9 @@
 
 | Category                | Details                                                                 |
 |------------------------|-------------------------------------------------------------------------|
-| Anti-Cheat Bypass      | Bypasses Watchdog, Polar, Grim and more!                                |
+| Full Anticheat Support | Bypasses Watchdog, Polar, Grim and more!                                |
 | Interface              | Minimal, and clean UI with a consistent and simple design!              |
-| Open Source            | This means no bigrat.monster!                                           |
+| Open Source            | This means no viruses are included!                                     |
 
 ---
 
@@ -22,7 +23,9 @@
 
 Get the latest release at [Releases Page](https://github.com/unleg1t/Yuri/releases).
 
-... or get a unstable nightly build at the [Actions Page](https://github.com/unleg1t/Yuri/actions)
+... or you get a unstable nightly build at the [Actions Page](https://github.com/unleg1t/Yuri/actions)
+
+**For nightly builds you replace the `Yuri.jar` from the release packaged build (`Yuri-linux.zip` or `Yuri-windows.zip`) with the nightly `Yuri.jar`**
 
 ## Installation
 
@@ -57,6 +60,16 @@ cd Yuri
    - Use classpath of module: `Yuri.main`
    - Make sure working directory has `\run` or `/run` at the end of it!
 4. Run the client.
+
+## Disclamer
+
+Multiple other hacked client source code snippets were legally used in the making of this client. 
+
+The Yuri development team provides a smooth and clean cheating experience. All code quality is guaranteed but not
+completely solidified to be considered "original."
+
+If you encounter any bugs please make an issue with what the issue is and how
+to replicate this bug.
 
 ## Contributing
 
