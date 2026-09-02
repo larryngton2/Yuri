@@ -23,6 +23,7 @@ public class YuriMenu extends GuiScreen {
 
     private final List<MenuButton> buttons = new ArrayList<>();
     private WelcomeWindow welcomeWindow;
+    private static boolean displayWindow = true;
 
     private static final Color BASE_BG = new Color(10, 9, 13, 255);
     private static final Color ERROR_COLOR = new Color(214, 64, 69);
@@ -86,16 +87,19 @@ public class YuriMenu extends GuiScreen {
         buttons.add(new MenuButton("Settings", () -> mc.displayGuiScreen(new GuiOptions(this, mc.gameSettings))));
         buttons.add(new MenuButton("Exit", () -> mc.shutdown()));
 
-        float windowWidth = 250f;
-        float windowHeight = 100f;
-        float windowX = 12f;
-        float windowY = 12f;
+        welcomeWindow = null;
+        if (displayWindow) {
+            float windowWidth = 250f;
+            float windowHeight = 100f;
+            float windowX = 12f;
+            float windowY = 12f;
 
-        String placeholderText = "Welcome to Yuri Client!\n\n" +
-                "Any questions? Join our Discord! https://discord.gg/8VhKD2QQHc\n\n" +
-                "Happy Halloween!";
+            String placeholderText = "Welcome to Yuri Client!\n\n" +
+                    "Any questions? Join our Discord! https://discord.gg/8VhKD2QQHc\n\n" +
+                    "Happy Halloween!";
 
-        welcomeWindow = new WelcomeWindow(windowX, windowY, windowWidth, windowHeight, "Welcome Back!", placeholderText);
+            welcomeWindow = new WelcomeWindow(windowX, windowY, windowWidth, windowHeight, "Welcome Back!", placeholderText);
+        }
     }
 
     @Override
@@ -118,8 +122,12 @@ public class YuriMenu extends GuiScreen {
 
         drawContent(w, h, mouseX, mouseY, center);
 
-        if (welcomeWindow != null && !welcomeWindow.shouldWindowClose()) {
-            welcomeWindow.render(mouseX, mouseY);
+        if (welcomeWindow != null) {
+            if (!welcomeWindow.shouldWindowClose()) {
+                welcomeWindow.render(mouseX, mouseY);
+            } else {
+                displayWindow = false;
+            }
         }
 
         super.drawScreen(mouseX, mouseY, partialTicks);
